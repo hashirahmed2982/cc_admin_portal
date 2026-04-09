@@ -1,72 +1,86 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Product } from "@/app/products/page";
+import { api } from "@/lib/api";
 
 interface ViewCodesModalProps {
   product: Product;
   onClose: () => void;
 }
 
+interface Code {
+  code_id: number;
+  code: string;
+  status: "available" | "sold" | "reserved" | "invalid";
+  source: string;
+  upload_batch: string | null;
+  created_at: string;
+  sold_at: string | null;
+  reserved_at: string | null;
+}
+
 export default function ViewCodesModal({ product, onClose }: ViewCodesModalProps) {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
+  const [codes, setCodes]           = useState<Code[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [page, setPage]             = useState(1);
+  const [total, setTotal]           = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const LIMIT = 30;
 
-  // Mock codes data
-  const mockCodes = Array.from({ length: 20 }, (_, i) => ({
-    id: `CODE-${i + 1}`,
-    code: `XXXX-XXXX-${String(i + 1).padStart(4, "0")}`,
-    status: i < 5 ? "sold" : i < 8 ? "reserved" : "available",
-    uploadedAt: "2024-02-01",
-    soldAt: i < 5 ? "2024-02-03" : undefined,
-    supplier: i < 5 ? "Internal" : "CarryPin",
-    soldTo: i < 5 ? `user${i + 1}@example.com` : undefined,
-  }));
+  const loadCodes = useCallback(async () => {
+    try {
+      setLoading(true);
+      const result = await api.getProductCodes(product.id, {
+        page,
+        limit: LIMIT,
+        status: statusFilter || undefined,
+      });
+      setCodes(result.data || []);
+      setTotal(result.pagination?.total || 0);
+      setTotalPages(result.pagination?.totalPages || 1);
+    } catch (err: any) {
+      setCodes([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [product.id, page, statusFilter]);
 
-  const filteredCodes = mockCodes.filter((code) => {
-    const matchesSearch = code.code.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === "all" || code.status === filterStatus;
-    return matchesSearch && matchesStatus;
-  });
+  useEffect(() => { loadCodes(); }, [loadCodes]);
+  useEffect(() => { setPage(1); }, [statusFilter]);
 
-  const getStatusBadge = (status: string) => {
-    const styles = {
+  const statusBadge = (s: string) => {
+    const map: Record<string, string> = {
       available: "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400",
-      sold: "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400",
-      reserved: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400",
+      sold:      "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400",
+      reserved:  "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400",
+      invalid:   "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400",
     };
-    return styles[status as keyof typeof styles] || styles.available;
+    return map[s] || map.available;
+  };
+
+  // Summary counts from the current full dataset perspective
+  const summary = {
+    available: product.availableCodes ?? 0,
+    sold:      product.soldCodes ?? 0,
+    total:     product.totalCodes ?? 0,
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+
+        {/* Header */}
         <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Product Codes
-              </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                {product.name}
-              </p>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Product Codes</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{product.name}</p>
             </div>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
@@ -75,137 +89,115 @@ export default function ViewCodesModal({ product, onClose }: ViewCodesModalProps
         <div className="p-6 space-y-4 flex-1 overflow-y-auto">
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4">
-            <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
-              <p className="text-sm text-gray-600 dark:text-gray-400">Available</p>
-              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                {mockCodes.filter((c) => c.status === "available").length}
-              </p>
+            <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 text-center">
+              <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Available</p>
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">{summary.available.toLocaleString()}</p>
             </div>
-            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
-              <p className="text-sm text-gray-600 dark:text-gray-400">Sold</p>
-              <p className="text-2xl font-bold text-gray-600 dark:text-gray-400">
-                {mockCodes.filter((c) => c.status === "sold").length}
-              </p>
+            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 text-center">
+              <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Sold</p>
+              <p className="text-2xl font-bold text-gray-600 dark:text-gray-400">{summary.sold.toLocaleString()}</p>
             </div>
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-3">
-              <p className="text-sm text-gray-600 dark:text-gray-400">Reserved</p>
-              <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-                {mockCodes.filter((c) => c.status === "reserved").length}
-              </p>
+            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-center">
+              <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Total</p>
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{summary.total.toLocaleString()}</p>
             </div>
           </div>
 
-          {/* Search and Filter */}
-          <div className="flex gap-4">
-            <div className="flex-1 relative">
-              <svg
-                className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-              <input
-                type="text"
-                placeholder="Search codes..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+          {/* Filters */}
+          <div className="flex gap-3">
             <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value)}
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="all">All Status</option>
+              <option value="">All Statuses</option>
               <option value="available">Available</option>
               <option value="sold">Sold</option>
               <option value="reserved">Reserved</option>
+              <option value="invalid">Invalid</option>
             </select>
+            <span className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+              {total.toLocaleString()} codes {statusFilter ? `(${statusFilter})` : "total"}
+            </span>
           </div>
 
-          {/* Codes Table */}
+          {/* Table */}
           <div className="bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-800">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Code
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Uploaded
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Sold To
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Sold At
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Supplier
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
-                  {filteredCodes.map((code) => (
-                    <tr
-                      key={code.id}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                    >
-                      <td className="px-4 py-3 text-sm font-mono text-gray-900 dark:text-white">
-                        {code.code}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`px-2 py-1 text-xs font-medium rounded ${getStatusBadge(
-                            code.status
-                          )}`}
-                        >
-                          {code.status.toUpperCase()}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                        {code.uploadedAt}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                        {code.soldTo || "-"}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                        {code.soldAt || "-"}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                        {code.supplier || "-"}
-                      </td>
+              {loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <svg className="animate-spin w-8 h-8 text-blue-600" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                </div>
+              ) : codes.length === 0 ? (
+                <div className="text-center py-10">
+                  <p className="text-gray-500 dark:text-gray-400">No codes found</p>
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead className="bg-gray-50 dark:bg-gray-800">
+                    <tr>
+                      {["Code", "Status", "Source", "Batch", "Uploaded", "Sold At"].map(h => (
+                        <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">{h}</th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
+                    {codes.map(code => (
+                      <tr key={code.code_id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <td className="px-4 py-3 font-mono text-xs text-gray-900 dark:text-white whitespace-nowrap">
+                          {code.code}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-0.5 text-xs font-medium rounded ${statusBadge(code.status)}`}>
+                            {code.status.toUpperCase()}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400 capitalize">
+                          {code.source.replace("_", " ")}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 max-w-[120px] truncate" title={code.upload_batch || ""}>
+                          {code.upload_batch || "—"}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                          {code.created_at ? new Date(code.created_at).toLocaleDateString() : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                          {code.sold_at ? new Date(code.sold_at).toLocaleDateString() : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
-
-            {filteredCodes.length === 0 && (
-              <div className="text-center py-8">
-                <p className="text-gray-500 dark:text-gray-400">No codes found</p>
-              </div>
-            )}
           </div>
         </div>
 
+        {/* Footer with pagination */}
         <div className="border-t border-gray-200 dark:border-gray-700 px-6 py-4">
-          <div className="flex justify-between items-center">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Showing {filteredCodes.length} of {mockCodes.length} codes
-            </p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1 || loading}
+                className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-sm rounded-lg disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
+              >
+                Previous
+              </button>
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages || loading}
+                className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-sm rounded-lg disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
+              >
+                Next
+              </button>
+            </div>
             <button
               onClick={onClose}
               className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"

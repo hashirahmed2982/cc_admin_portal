@@ -176,9 +176,23 @@ class ApiService {
   async createViewerAccount(userId: number, viewerData: { name: string; email: string; password: string }) {
     return this.request(`/users/${userId}/viewer-accounts`, { method: 'POST', body: JSON.stringify(viewerData) });
   }
+  
 
   // ─── PRODUCTS ────────────────────────────────────────────────────────────
-
+/** Admin: get all products with visibility + custom price config for a user */
+  async getUserProductConfig(id: number) {
+    return this.request(`/users/${id}/products`);
+  }
+ 
+  /** Admin: save product visibility + custom pricing for a user */
+  async saveUserProductConfig(id: number, configs: {
+    id: string; visible: boolean; customPrice?: number; useCustomPrice: boolean;
+  }[]) {
+    return this.request(`/users/${id}/products`, {
+      method: 'PUT',
+      body: JSON.stringify({ configs }),
+    });
+  }
   async getUserProductAccess(userId: number) {
     return this.request(`/users/${userId}/products`);
   }
@@ -189,29 +203,188 @@ class ApiService {
 
   // ─── WALLET ──────────────────────────────────────────────────────────────
 
-  async getWalletBalance() {
-    return this.request('/wallet/balance');
+  // ─── WALLET – ADMIN ───────────────────────────────────────────────────────
+
+  /** All wallet balances (admin wallet balances table) */
+  async getAllWalletBalances(filters?: { page?: number; limit?: number; search?: string }) {
+    const params = new URLSearchParams();
+    if (filters?.page)   params.append('page',   String(filters.page));
+    if (filters?.limit)  params.append('limit',  String(filters.limit));
+    if (filters?.search) params.append('search', filters.search);
+    return this.request(`/wallet/balances${params.toString() ? `?${params}` : ''}`);
   }
 
-  async getWalletTransactions(page = 1, limit = 20) {
-    return this.request(`/wallet/transactions?page=${page}&limit=${limit}`);
+  /** All topup requests with optional status filter */
+  async getTopupRequests(status?: string, page = 1, limit = 20) {
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+    if (status) params.append('status', status);
+    return this.request(`/wallet/topup-requests?${params}`);
   }
 
-  async requestTopup(amount: number, receiptUrl: string) {
-    return this.request('/wallet/topup', { method: 'POST', body: JSON.stringify({ amount, receiptUrl }) });
-  }
-
-  async getTopupRequests(status?: string) {
-    const query = status ? `?status=${status}` : '';
-    return this.request(`/wallet/topup-requests${query}`);
-  }
-
+  /** Approve a topup request — requires MFA */
   async approveTopup(requestId: number, mfaCode: string) {
-    return this.request(`/wallet/topup/${requestId}/approve`, { method: 'POST', body: JSON.stringify({ mfaCode }) });
+    return this.request(`/wallet/topup/${requestId}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ mfaCode }),
+    });
   }
 
+  /** Reject a topup request — requires MFA */
   async rejectTopup(requestId: number, reason: string, mfaCode: string) {
-    return this.request(`/wallet/topup/${requestId}/reject`, { method: 'POST', body: JSON.stringify({ reason, mfaCode }) });
+    return this.request(`/wallet/topup/${requestId}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason, mfaCode }),
+    });
+  }
+
+  /** All transactions across all wallets (admin history table) */
+  async getAllTransactions(filters?: { page?: number; limit?: number; userId?: number; type?: string }) {
+    const params = new URLSearchParams();
+    if (filters?.page)   params.append('page',   String(filters.page));
+    if (filters?.limit)  params.append('limit',  String(filters.limit));
+    if (filters?.userId) params.append('userId', String(filters.userId));
+    if (filters?.type)   params.append('type',   filters.type);
+    return this.request(`/wallet/transactions/all${params.toString() ? `?${params}` : ''}`);
+  }
+// ============================================
+  // PRODUCTS
+  // ============================================
+
+  /** List products — optional filter by source='internal'|'carrypin' */
+  async getProducts(f?: {
+    page?: number; limit?: number; search?: string;
+    category?: string; brand?: string; status?: string;
+    source?: 'internal' | 'carrypin';
+  }) {
+    const p = new URLSearchParams();
+    if (f?.page)     p.append('page',     String(f.page));
+    if (f?.limit)    p.append('limit',    String(f.limit));
+    if (f?.search)   p.append('search',   f.search);
+    if (f?.category) p.append('category', f.category);
+    if (f?.brand)    p.append('brand',    f.brand);
+    if (f?.status)   p.append('status',   f.status);
+    if (f?.source)   p.append('source',   f.source);
+    return this.request(`/products${p.toString() ? '?' + p : ''}`);
+  }
+ 
+  async getProductMeta(): Promise<{ success: boolean; data: { categories: string[]; brands: string[] } }> {
+    return this.request('/products/meta');
+  }
+ 
+  async getProductById(id: string | number) {
+    return this.request(`/products/${id}`);
+  }
+ 
+  /**
+   * Create an INTERNAL product (manually managed codes).
+   */
+  async createInternalProduct(d: {
+    name: string; category: string; brand: string;
+    description: string; redemptionInstructions: string;
+    price: number; discountPrice?: number; images?: string[];
+  }) {
+    return this.request('/products/internal', { method: 'POST', body: JSON.stringify(d) });
+  }
+ 
+  /**
+   * Create a SUPPLIER product (real-time fulfilment, no stored codes).
+   */
+  async createSupplierProduct(d: {
+    name: string; category: string; brand: string;
+    description: string; redemptionInstructions: string;
+    price: number; costPrice?: number; faceValue?: number;
+    supplierName: string;   // 'carrypin'
+    supplierRef: string;    // SPU ID
+    supplierSkuRef?: string;// SKU/denomination ID
+    realtimePrice?: boolean;
+    syncEnabled?: boolean;
+    images?: string[];
+  }) {
+    return this.request('/products/supplier', { method: 'POST', body: JSON.stringify(d) });
+  }
+ 
+  async updateProduct(id: string | number, d: Record<string, any>) {
+    return this.request(`/products/${id}`, { method: 'PUT', body: JSON.stringify(d) });
+  }
+ 
+  async toggleProductStatus(id: string | number) {
+    return this.request(`/products/${id}/toggle-status`, { method: 'PATCH' });
+  }
+ 
+  async deleteProduct(id: string | number) {
+    return this.request(`/products/${id}`, { method: 'DELETE' });
+  }
+ 
+  /** Codes (internal products only) */
+  async getProductCodes(id: string | number, f?: { page?: number; limit?: number; status?: string }) {
+    const p = new URLSearchParams();
+    if (f?.page)   p.append('page',   String(f.page));
+    if (f?.limit)  p.append('limit',  String(f.limit));
+    if (f?.status) p.append('status', f.status!);
+    return this.request(`/products/${id}/codes${p.toString() ? '?' + p : ''}`);
+  }
+ 
+  /** Upload Excel codes (internal products only) */
+  async uploadProductCodes(id: string | number, file: File) {
+    const fd = new FormData();
+    fd.append('file', file);
+    const headers: HeadersInit = {};
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('accessToken');
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+    }
+    const res = await fetch(`${this.baseURL}/products/${id}/upload-codes`, { method: 'POST', headers, body: fd });
+    return this.handleResponse(res);
+  }
+ 
+  /** Parse Excel file server-side, returns preview rows without writing to DB */
+  async importExcelPreview(file: File) {
+    const fd = new FormData();
+    fd.append('file', file);
+    const headers: HeadersInit = {};
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('accessToken');
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+    }
+    const res = await fetch(`${this.baseURL}/products/import-excel`, { method: 'POST', headers, body: fd });
+    return this.handleResponse(res);
+  }
+ 
+  /** Bulk-create internal products from parsed row array */
+  async importBulkProducts(rows: any[]) {
+    return this.request('/products/import-bulk', { method: 'POST', body: JSON.stringify({ rows }) });
+  }
+ 
+ 
+  async checkProductStock(id: string | number) {
+    return this.request(`/products/${id}/stock-check`);
+  }
+  async uploadProductCodesJson(id: string | number, entries: { code: string; status: string }[], fileName: string) {
+    return this.request(`/products/${id}/upload-codes-json`, {
+      method: 'POST',
+      body: JSON.stringify({ entries, fileName }),
+    });
+  }
+ // ── ORDERS (ADMIN) ─────────────────────────────────────────────────────────
+ 
+  /** Admin: all orders across all clients */
+  async getAllOrders(params?: { status?: string; userId?: number; page?: number; limit?: number }) {
+    const p = new URLSearchParams();
+    if (params?.status) p.set('status', params.status);
+    if (params?.userId) p.set('userId', String(params.userId));
+    if (params?.page)   p.set('page',   String(params.page));
+    if (params?.limit)  p.set('limit',  String(params.limit));
+    return this.request(`/orders/admin/all${p.toString() ? '?' + p : ''}`);
+  }
+ 
+  /** Admin: single order with full delivery breakdown */
+  async getAdminOrderById(id: string | number) {
+    return this.request(`/orders/admin/${id}`);
+  }
+ 
+  /** Admin: fulfill remaining items and notify client */
+  async completeOrder(id: string | number) {
+    return this.request(`/orders/admin/${id}/complete`, { method: 'POST' });
   }
 }
 
