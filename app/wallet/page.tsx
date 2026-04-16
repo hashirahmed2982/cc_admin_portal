@@ -39,6 +39,10 @@ export interface WalletBalance {
 }
 
 export interface Transaction {
+  processedByName: string;
+  createdAt: string;
+  referenceId: any;
+  referenceType: any;
   id: string;
   userId: string;
   userName: string;
@@ -110,19 +114,23 @@ function mapTransaction(t: any): Transaction {
       ? -Math.abs(rawAmount)
       : Math.abs(rawAmount);
 
-  return {
-    id: String(t.id ?? t.transaction_id),
-    userId: String(t.userId ?? t.user_id ?? ""),
-    userName: t.userName ?? t.user_name ?? "",
-    company: t.company ?? t.company_name ?? "",
-    type: mappedType,
-    amount,
-    balanceBefore: Number(t.balanceBefore ?? t.balance_before ?? 0),
-    balanceAfter: Number(t.balanceAfter ?? t.balance_after ?? 0),
-    description: t.description ?? "",
-    timestamp: t.timestamp ?? t.createdAt ?? t.created_at ?? "",
-    performedBy: t.performedBy ?? t.processedByName ?? t.processed_by_name ?? "System",
-  };
+return {
+  id: String(t.id ?? t.transaction_id),
+  userId: String(t.userId ?? t.user_id ?? ""),
+  userName: t.userName ?? t.user_name ?? "",
+  company: t.company ?? t.company_name ?? "",
+  type: mappedType,
+  amount,
+  balanceBefore: Number(t.balanceBefore ?? t.balance_before ?? 0),
+  balanceAfter: Number(t.balanceAfter ?? t.balance_after ?? 0),
+  description: t.description ?? "",
+  timestamp: t.timestamp ?? t.createdAt ?? t.created_at ?? "",
+  performedBy: t.performedBy ?? t.processedByName ?? t.processed_by_name ?? "System",
+  processedByName: "",
+  createdAt: "",
+  referenceId: undefined,
+  referenceType: undefined
+};
 }
 
 export default function WalletManagementPage() {
@@ -258,6 +266,10 @@ export default function WalletManagementPage() {
             description: `Wallet topup via bank transfer (Request: ${pendingAction.request.id})`,
             timestamp: currentDate,
             performedBy: "Admin User",
+            processedByName: "",
+            createdAt: "",
+            referenceId: undefined,
+            referenceType: undefined
           };
           setTransactions((prev) => [newTransaction, ...prev]);
         }

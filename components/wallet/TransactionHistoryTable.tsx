@@ -42,23 +42,23 @@ export default function TransactionHistoryTable({ transactions }: Props) {
               <td className="px-4 py-3">
                 <span
                   className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                    tx.type === "credit"
+                    tx.type === "topup" || tx.type === "refund"
                       ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400"
                       : "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400"
                   }`}
                 >
-                  {tx.type === "credit" ? "▲ Credit" : "▼ Debit"}
+                  {tx.type === "topup" || tx.type === "refund" ? "▲ Credit" : "▼ Debit"}
                 </span>
               </td>
               <td className="px-4 py-3">
                 <span
                   className={`text-sm font-bold ${
-                    tx.type === "credit"
+                    tx.type === "topup" || tx.type === "refund"
                       ? "text-green-600 dark:text-green-400"
                       : "text-red-600 dark:text-red-400"
                   }`}
                 >
-                  {tx.type === "credit" ? "+" : "-"}${tx.amount.toLocaleString()}
+                  {tx.type === "topup" || tx.type === "refund" ? "+" : "-"}${tx.amount.toLocaleString()}
                 </span>
               </td>
               <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">

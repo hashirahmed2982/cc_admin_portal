@@ -1,7 +1,7 @@
 "use client";
 
 import Dashboard from "@/components/Dashboard";
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, JSX } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

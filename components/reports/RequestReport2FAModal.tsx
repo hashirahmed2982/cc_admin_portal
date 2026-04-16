@@ -106,9 +106,9 @@ export default function RequestReport2FAModal({
           {/* Report Details */}
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
             <div className="flex gap-3">
-              <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/40 rounded-lg flex items-center justify-center text-blue-600 dark:text-blue-400 flex-shrink-0">
+              {/* <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/40 rounded-lg flex items-center justify-center text-blue-600 dark:text-blue-400 flex-shrink-0">
                 {report.icon}
-              </div>
+              </div> */}
               <div className="flex-1">
                 <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
                   {report.name}
@@ -117,7 +117,7 @@ export default function RequestReport2FAModal({
                   {report.description}
                 </p>
                 <div className="flex items-center gap-3 mt-2 text-xs text-blue-600 dark:text-blue-400">
-                  <span className="flex items-center gap-1">
+                  {/* <span className="flex items-center gap-1">
                     <svg
                       className="w-4 h-4"
                       fill="none"
@@ -132,7 +132,7 @@ export default function RequestReport2FAModal({
                       />
                     </svg>
                     {report.estimatedTime}
-                  </span>
+                  </span> */}
                   <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/40 rounded">
                     {report.category}
                   </span>
