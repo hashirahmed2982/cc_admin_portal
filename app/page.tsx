@@ -2,13 +2,15 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { hasClientAuthSession } from "@/lib/authBypass";
 
 export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    if (hasClientAuthSession()) {
+    // Check if user is logged in
+    const token = localStorage.getItem("accessToken");
+    
+    if (token) {
       // User is logged in, redirect to dashboard
       router.push("/dashboard");
     } else {
