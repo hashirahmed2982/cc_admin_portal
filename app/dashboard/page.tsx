@@ -57,9 +57,10 @@ interface DashboardData {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function fmt(n: number, currency = true) {
-  if (currency) return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  return n.toLocaleString();
+function fmt(n: number | null | undefined, currency = true) {
+  const num = parseFloat(String(n ?? 0)) || 0;
+  if (currency) return `$${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return num.toLocaleString();
 }
 
 function Change({ pct }: { pct: number | null }) {
@@ -176,7 +177,7 @@ export default function DashboardPage() {
             Welcome back, {user?.full_name || "Admin"}!
           </h2>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Here&apos;s what&apos;s happening with your B2B portal today.
+            Here's what's happening with your B2B portal today.
           </p>
         </div>
 
