@@ -1,6 +1,6 @@
 // lib/api.ts
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://178.104.162.74:5000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 const API_VERSION = 'v1';
 
 class ApiService {
@@ -50,6 +50,9 @@ class ApiService {
 
   async login(email: string, password: string, mfaCode?: string) {
     return this.request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password, mfaCode }) }, false);
+  }
+  async getAdminDashboard() {
+    return this.request('/admin/dashboard');
   }
 
   async refreshToken() {
