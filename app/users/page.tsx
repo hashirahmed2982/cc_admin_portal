@@ -1,9 +1,10 @@
 "use client";
 
 import Dashboard from "@/components/Dashboard";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { hasClientAuthSession } from "@/lib/authBypass";
 import UserTable from "@/components/users/UserTable";
 import CreateUserModal from "@/components/users/CreateUserModal";
 import EditUserModal from "@/components/users/EditUserModal";
@@ -48,6 +49,29 @@ export interface User {
   settlementNotes?: string;
 }
 
+interface ApiUser {
+  user_id: number;
+  full_name: string;
+  email: string;
+  company_name?: string;
+  user_type: User["user_type"];
+  status: User["status"];
+  wallet_id?: number;
+  wallet_balance?: number;
+  created_at?: string;
+  last_login?: string;
+  locked_reason?: string;
+  restricted_products?: string[];
+  viewer_accounts?: ViewerAccount[];
+  permanent_block_reason?: string;
+  permanent_block_date?: string;
+  wallet_settled?: boolean;
+  settlement_method?: string;
+  settlement_reference?: string;
+  settlement_date?: string;
+  settlement_notes?: string;
+}
+
 export default function UsersPage() {
   const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
@@ -57,6 +81,7 @@ export default function UsersPage() {
   const [filterUserType, setFilterUserType] = useState<string>("all");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [currentUserType, setCurrentUserType] = useState<"super_admin" | "admin">("admin");
+  const [isAuthChecked, setIsAuthChecked] = useState(false);
 
   // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -68,29 +93,26 @@ export default function UsersPage() {
   const [showPermanentBlockModal, setShowPermanentBlockModal] = useState(false);
   const [showSettleWalletModal, setShowSettleWalletModal] = useState(false);
 
-  // Check authentication and load users
+  // Check authentication once
   useEffect(() => {
-    const token = localStorage.getItem("accessToken");
-    if (!token) {
+    if (!hasClientAuthSession()) {
       router.push("/login");
       return;
     }
-    // Read logged-in user's type from localStorage
+    
     try {
       const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
-      if (storedUser.user_type === "super_admin") {
-        setCurrentUserType("super_admin");
-      } else {
-        setCurrentUserType("admin");
-      }
+      setCurrentUserType(storedUser.user_type === "super_admin" ? "super_admin" : "admin");
     } catch {
       setCurrentUserType("admin");
     }
-    loadUsers();
+    setIsAuthChecked(true);
   }, [router]);
 
-  // Load users from API
-  const loadUsers = async () => {
+  // Load users from API - Memoized to prevent recreation
+  const loadUsers = useCallback(async () => {
+    if (!hasClientAuthSession()) return;
+    
     setLoading(true);
     try {
       const response = await api.getUsers({
@@ -101,8 +123,7 @@ export default function UsersPage() {
         search: searchTerm || undefined,
       });
 
-      // Transform API response to match User interface
-      const transformedUsers: User[] = response.data.map((apiUser: any) => ({
+      const transformedUsers: User[] = response.data.map((apiUser: ApiUser) => ({
         id: String(apiUser.user_id),
         name: apiUser.full_name,
         email: apiUser.email,
@@ -127,13 +148,21 @@ export default function UsersPage() {
       }));
 
       setUsers(transformedUsers);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error loading users:", error);
-      alert(error.message || "Failed to load users");
+      const msg = error instanceof Error ? error.message : "Failed to load users";
+      alert(msg);
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterStatus, filterUserType, searchTerm]);
+
+  // Data fetching effect - only runs when auth is verified or filters change
+  useEffect(() => {
+    if (isAuthChecked) {
+      loadUsers();
+    }
+  }, [isAuthChecked, loadUsers]);
 
   // Client-side filtering
   const filteredUsers = users.filter((user) => {
@@ -150,7 +179,7 @@ export default function UsersPage() {
 
   // ─── HANDLERS ────────────────────────────────────────────────────────────
 
-  const handleEditUser = async (userData: any) => {
+  const handleEditUser = async (userData: { name: string; company: string; phone?: string }) => {
     if (!selectedUser) return;
     try {
       await api.updateUser(Number(selectedUser.id), {
@@ -161,8 +190,9 @@ export default function UsersPage() {
       setShowEditModal(false);
       setSelectedUser(null);
       loadUsers();
-    } catch (error: any) {
-      alert(error.message || "Failed to update user");
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Failed to update user";
+      alert(msg);
     }
   };
 
@@ -173,8 +203,9 @@ export default function UsersPage() {
       setShowLockModal(false);
       setSelectedUser(null);
       loadUsers();
-    } catch (error: any) {
-      alert(error.message || "Failed to lock user");
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Failed to lock user";
+      alert(msg);
     }
   };
 
@@ -182,8 +213,9 @@ export default function UsersPage() {
     try {
       await api.unlockUser(Number(userId));
       loadUsers();
-    } catch (error: any) {
-      alert(error.message || "Failed to unlock user");
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Failed to unlock user";
+      alert(msg);
     }
   };
 
@@ -198,20 +230,22 @@ export default function UsersPage() {
       } else {
         alert("Password reset email sent to user!");
       }
-    } catch (error: any) {
-      alert(error.message || "Failed to reset password");
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Failed to reset password";
+      alert(msg);
     }
   };
 
-  const handleAssignRole = async (role: string, permissions: string[]) => {
+  const handleAssignRole = async (_role: string, _permissions: string[]) => {
     if (!selectedUser) return;
     try {
       await api.updateUser(Number(selectedUser.id), {});
       setShowAssignRoleModal(false);
       setSelectedUser(null);
       loadUsers();
-    } catch (error: any) {
-      alert(error.message || "Failed to assign role");
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Failed to assign role";
+      alert(msg);
     }
   };
 
@@ -231,8 +265,9 @@ export default function UsersPage() {
       setShowPermanentBlockModal(false);
       setSelectedUser(null);
       loadUsers();
-    } catch (error: any) {
-      alert(error.message || "Failed to block user");
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Failed to block user";
+      alert(msg);
     }
   };
 
@@ -250,8 +285,9 @@ export default function UsersPage() {
       setShowSettleWalletModal(false);
       setSelectedUser(null);
       loadUsers();
-    } catch (error: any) {
-      alert(error.message || "Failed to settle wallet");
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Failed to settle wallet";
+      alert(msg);
     }
   };
 

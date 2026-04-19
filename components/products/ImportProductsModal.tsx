@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Product } from "@/app/products/page";
 import { api } from "@/lib/api";
 
 interface ImportProductsModalProps {
@@ -14,7 +13,6 @@ interface ParsedProduct {
   productType: string;
   category: string;
   currency: string;
-  // derived / defaulted
   brand: string;
   price: number;
   description: string;
@@ -22,6 +20,27 @@ interface ParsedProduct {
   images: string[];
 }
 
+/** 
+ * Represents the raw data coming back from the Excel preview API.
+ * Since users can upload anything, we treat these fields as optional strings.
+ */
+interface RawExcelRow {
+  name?: string | number;
+  productType?: string | number;
+  category?: string | number;
+  currency?: string | number;
+  brand?: string | number;
+  price?: string | number;
+  description?: string | number;
+  redemptionInstructions?: string | number;
+  [key: string]: string | number | undefined;
+}
+
+interface ImportLogEntry {
+  name: string;
+  ok: boolean;
+  msg?: string;
+}
 
 type Stage = "pick" | "preview" | "importing" | "done";
 
@@ -35,9 +54,8 @@ export default function ImportProductsModal({ onClose, onComplete }: ImportProdu
   const [importTotal, setImportTotal]     = useState(0);
   const [importDone, setImportDone]       = useState(0);
   const [importFailed, setImportFailed]   = useState(0);
-  const [importLog, setImportLog]         = useState<{name: string; ok: boolean; msg?: string}[]>([]);
+  const [importLog, setImportLog]         = useState<ImportLogEntry[]>([]);
 
-  // ─── Parse: send file to backend, get rows back ───────────────────────────
   const [parsing, setParsing] = useState(false);
 
   const parseFile = async (file: File) => {
@@ -45,14 +63,31 @@ export default function ImportProductsModal({ onClose, onComplete }: ImportProdu
     setParsing(true);
     try {
       const result = await api.importExcelPreview(file);
-      if (!result.data?.length) {
+      const rawData = result.data as RawExcelRow[];
+      
+      if (!rawData || !rawData.length) {
         setParseError("No valid product rows found in the file.");
         return;
       }
-      setParsedRows(result.data);
+      
+      // Sanitize and trim data to prevent database errors
+      const sanitizedData: ParsedProduct[] = rawData.map((row) => ({
+        name: row.name ? String(row.name).substring(0, 255) : "Unknown Product",
+        productType: row.productType ? String(row.productType).substring(0, 100) : "",
+        category: row.category ? String(row.category).substring(0, 50) : "",
+        currency: row.currency ? String(row.currency).substring(0, 10) : "",
+        brand: row.brand ? String(row.brand).substring(0, 100) : (row.productType ? String(row.productType).substring(0, 100) : ""),
+        price: isNaN(Number(row.price)) ? 0 : Number(row.price),
+        description: row.description ? String(row.description) : "",
+        redemptionInstructions: row.redemptionInstructions ? String(row.redemptionInstructions) : "",
+        images: []
+      }));
+
+      setParsedRows(sanitizedData);
       setStage("preview");
-    } catch (err: any) {
-      setParseError(err.message || "Failed to parse file. Check that it's a valid Excel file.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to parse file. Check that it's a valid Excel file.";
+      setParseError(msg);
     } finally {
       setParsing(false);
     }
@@ -79,7 +114,6 @@ export default function ImportProductsModal({ onClose, onComplete }: ImportProdu
     }
   };
 
-  // ─── Import: send all rows to backend in one call ─────────────────────────
   const startImport = async () => {
     setStage("importing");
     setImportTotal(parsedRows.length);
@@ -89,21 +123,39 @@ export default function ImportProductsModal({ onClose, onComplete }: ImportProdu
 
     try {
       const result = await api.importBulkProducts(parsedRows);
-      const { results } = result.data;
+      const { results, imported, failed } = result.data as { 
+        results: { name: string; ok: boolean; error?: string }[], 
+        imported: number, 
+        failed: number 
+      };
 
-      const log = results.map((r: any) => ({ name: r.name, ok: r.ok, msg: r.error }));
+      const log: ImportLogEntry[] = results.map((r) => {
+        let errorMsg = r.error;
+        if (errorMsg?.includes("Data too long for column 'category'")) {
+          errorMsg = "Category name is too long (max 50 characters)";
+        } else if (errorMsg?.includes("Data too long for column 'name'")) {
+          errorMsg = "Product name is too long (max 255 characters)";
+        }
+
+        return { 
+          name: r.name, 
+          ok: r.ok, 
+          msg: errorMsg 
+        };
+      });
+      
       setImportLog(log);
-      setImportDone(result.data.imported);
-      setImportFailed(result.data.failed);
-    } catch (err: any) {
+      setImportDone(imported);
+      setImportFailed(failed);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Import failed unexpectedly";
       setImportFailed(parsedRows.length);
-      setImportLog(parsedRows.map(p => ({ name: p.name, ok: false, msg: err.message || "Failed" })));
+      setImportLog(parsedRows.map(p => ({ name: p.name, ok: false, msg: msg })));
     }
 
     setStage("done");
   };
 
-  // ─── Render ───────────────────────────────────────────────────────────────
   const progress = importTotal > 0 ? Math.round(((importDone + importFailed) / importTotal) * 100) : 0;
 
   return (
@@ -132,7 +184,6 @@ export default function ImportProductsModal({ onClose, onComplete }: ImportProdu
             </button>
           </div>
 
-          {/* Stage breadcrumb */}
           <div className="flex items-center gap-2 mt-4">
             {(["pick", "preview", "importing", "done"] as Stage[]).map((s, i) => {
               const labels = ["Upload File", "Review", "Importing", "Complete"];
@@ -165,16 +216,14 @@ export default function ImportProductsModal({ onClose, onComplete }: ImportProdu
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
 
-          {/* ── STAGE: PICK ─────────────────────────────────────────────── */}
           {stage === "pick" && (
             <>
-              {/* Column mapping info */}
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 rounded-lg p-4">
                 <p className="text-sm font-medium text-blue-900 dark:text-blue-200 mb-2">Expected Excel columns:</p>
                 <div className="grid grid-cols-2 gap-x-6 gap-y-1">
                   {[
                     { col: "Product Name", note: "Required — product will be skipped if blank" },
-                    { col: "Category",     note: "Optional — defaults to empty" },
+                    { col: "Category",     note: "Optional — max 50 chars" },
                     { col: "Product Type", note: "Optional — used as Brand if Brand is absent" },
                     { col: "Currency",     note: "Optional — informational only" },
                     { col: "Brand",        note: "Optional" },
@@ -192,7 +241,6 @@ export default function ImportProductsModal({ onClose, onComplete }: ImportProdu
                 </p>
               </div>
 
-              {/* Drop zone */}
               <div
                 onDragOver={e => e.preventDefault()}
                 onDrop={handleDrop}
@@ -237,10 +285,8 @@ export default function ImportProductsModal({ onClose, onComplete }: ImportProdu
             </>
           )}
 
-          {/* ── STAGE: PREVIEW ──────────────────────────────────────────── */}
           {stage === "preview" && (
             <>
-              {/* Summary bar */}
               <div className="grid grid-cols-3 gap-4">
                 <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 text-center">
                   <p className="text-2xl font-bold text-green-600 dark:text-green-400">{parsedRows.length}</p>
@@ -260,17 +306,16 @@ export default function ImportProductsModal({ onClose, onComplete }: ImportProdu
                 </div>
               </div>
 
-              {/* Info */}
               <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-4 py-3 flex gap-3">
                 <svg className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <p className="text-sm text-amber-700 dark:text-amber-300">
-                  All products will be created as <strong>Internal · Inactive</strong>. You can activate them individually once inventory codes are uploaded.
-                </p>
+                <div className="text-sm text-amber-700 dark:text-amber-300">
+                  <p>All products will be created as <strong>Internal · Inactive</strong>.</p>
+                  <p className="text-xs mt-1">Note: Long categories or names will be automatically trimmed to fit database limits.</p>
+                </div>
               </div>
 
-              {/* Preview table */}
               <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                 <div className="overflow-x-auto max-h-64">
                   <table className="w-full text-sm">
@@ -308,7 +353,6 @@ export default function ImportProductsModal({ onClose, onComplete }: ImportProdu
             </>
           )}
 
-          {/* ── STAGE: IMPORTING ────────────────────────────────────────── */}
           {stage === "importing" && (
             <div className="space-y-5">
               <div className="text-center py-2">
@@ -318,7 +362,6 @@ export default function ImportProductsModal({ onClose, onComplete }: ImportProdu
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Please keep this window open</p>
               </div>
 
-              {/* Progress bar */}
               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
                 <div
                   className="h-3 rounded-full bg-blue-600 transition-all duration-300"
@@ -330,7 +373,6 @@ export default function ImportProductsModal({ onClose, onComplete }: ImportProdu
                 <span>{progress}%</span>
               </div>
 
-              {/* Live log */}
               <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden max-h-52 overflow-y-auto">
                 <div className="space-y-0 divide-y divide-gray-100 dark:divide-gray-700">
                   {importLog.slice(-50).map((entry, i) => (
@@ -348,7 +390,6 @@ export default function ImportProductsModal({ onClose, onComplete }: ImportProdu
             </div>
           )}
 
-          {/* ── STAGE: DONE ─────────────────────────────────────────────── */}
           {stage === "done" && (
             <div className="space-y-5">
               <div className={`rounded-xl p-5 text-center ${importFailed === 0 ? "bg-green-50 dark:bg-green-900/20" : "bg-amber-50 dark:bg-amber-900/20"}`}>
@@ -367,17 +408,19 @@ export default function ImportProductsModal({ onClose, onComplete }: ImportProdu
                 </p>
               </div>
 
-              {/* Failed items */}
               {importFailed > 0 && (
                 <div className="border border-red-200 dark:border-red-800 rounded-lg overflow-hidden">
-                  <div className="px-3 py-2 bg-red-50 dark:bg-red-900/20">
-                    <p className="text-xs font-medium text-red-700 dark:text-red-300">Failed imports:</p>
+                  <div className="px-3 py-2 bg-red-50 dark:bg-red-900/20 flex justify-between">
+                    <p className="text-xs font-medium text-red-700 dark:text-red-300">Some products could not be imported:</p>
                   </div>
                   <div className="max-h-40 overflow-y-auto divide-y divide-red-100 dark:divide-red-900/30">
                     {importLog.filter(e => !e.ok).map((entry, i) => (
-                      <div key={i} className="flex items-start gap-2 px-3 py-2">
-                        <span className="text-xs text-gray-700 dark:text-gray-300 flex-1 truncate">{entry.name}</span>
-                        <span className="text-xs text-red-600 dark:text-red-400 flex-shrink-0">{entry.msg}</span>
+                      <div key={i} className="flex items-start gap-2 px-3 py-2 bg-white dark:bg-gray-800">
+                        <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-gray-900 dark:text-white truncate" title={entry.name}>{entry.name}</p>
+                          <p className="text-[10px] text-red-600 dark:text-red-400 mt-0.5">{entry.msg}</p>
+                        </div>
                       </div>
                     ))}
                   </div>

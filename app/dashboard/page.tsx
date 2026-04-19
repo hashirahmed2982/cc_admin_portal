@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Dashboard from "@/components/Dashboard";
 import Link from "next/link";
+import { hasClientAuthSession } from "@/lib/authBypass";
 
 interface User {
   user_id: number;
@@ -18,9 +19,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is logged in
-    const token = localStorage.getItem("accessToken");
-    if (!token) {
+    if (!hasClientAuthSession()) {
       router.push("/login");
       return;
     }
@@ -28,7 +27,12 @@ export default function DashboardPage() {
     // Get user data
     const userData = localStorage.getItem("user");
     if (userData) {
-      setUser(JSON.parse(userData));
+      try {
+        const parsedUser = JSON.parse(userData);
+        setUser(parsedUser);
+      } catch (e) {
+        console.error("Failed to parse user data", e);
+      }
     }
     setLoading(false);
   }, [router]);
@@ -50,7 +54,7 @@ export default function DashboardPage() {
             Welcome back, {user?.full_name || "Admin"}!
           </h2>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Here's what's happening with your B2B portal today.
+            Here&apos;s what&apos;s happening with your B2B portal today.
           </p>
         </div>
 

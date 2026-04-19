@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
 
 export default function LoginPage() {
-    const { setUser } = useAuth();
+  const { setUser } = useAuth();
   const router = useRouter();
   const [formData, setFormData] = useState({
     email: "",
@@ -50,12 +50,13 @@ export default function LoginPage() {
       localStorage.setItem("accessToken", data.data.accessToken);
       localStorage.setItem("refreshToken", data.data.refreshToken);
       localStorage.setItem("user", JSON.stringify(data.data.user));
-      // Save user to context (this also writes to localStorage)
+      // Save user to context
       setUser(data.data.user);
 
       router.push("/dashboard");
-    } catch (err: any) {
-      setError(err.message || "An error occurred during login");
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "An error occurred during login";
+      setError(errorMessage);
       setLoading(false);
     }
   };
@@ -67,7 +68,6 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 px-4">
       <div className="max-w-md w-full space-y-8">
-        {/* Logo/Header */}
         <div className="text-center">
           <div className="mx-auto h-16 w-16 bg-blue-600 rounded-lg flex items-center justify-center mb-4">
             <svg className="h-10 w-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -80,7 +80,6 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Login Form */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8">
           <form className="space-y-6" onSubmit={handleSubmit}>
             {error && (
