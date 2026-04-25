@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { TopupRequest } from "@/app/wallet/page";
+import { api } from "@/lib/api"; // Import the API service
 
 interface MFAVerificationModalProps {
   action: "approve" | "reject";
   request: TopupRequest;
-  onVerified: () => void;
+  onVerified: (otp: string) => void; // Modified to pass the verified OTP
   onClose: () => void;
 }
 
@@ -20,16 +21,31 @@ export default function MFAVerificationModal({
   const [error, setError] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
+  const [requestingOtp, setRequestingOtp] = useState(false); // New state for OTP request loading
+
+  const OTP_ACTION_TYPE = "wallet_topup_action"; // Consistent action type for backend
 
   useEffect(() => {
-    // Simulate sending OTP
-    setTimeout(() => {
-      setOtpSent(true);
-      console.log("OTP sent to admin email: 123456");
-    }, 1000);
-  }, []);
+    const sendOtpRequest = async () => {
+      setRequestingOtp(true);
+      setError("");
+      try {
+        await api.requestOTP(OTP_ACTION_TYPE);
+        setOtpSent(true);
+        console.log(`OTP request sent for action: ${OTP_ACTION_TYPE}`);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Failed to request OTP.";
+        setError(msg);
+        console.error("Error requesting OTP:", err);
+      } finally {
+        setRequestingOtp(false);
+      }
+    };
 
-  const handleVerify = () => {
+    sendOtpRequest();
+  }, []); // Run only once on mount
+
+  const handleVerify = async () => {
     if (otp.length !== 6) {
       setError("Please enter a 6-digit OTP code");
       return;
@@ -38,19 +54,19 @@ export default function MFAVerificationModal({
     setIsVerifying(true);
     setError("");
 
-    // Simulate OTP verification
-    setTimeout(() => {
-      if (otp === "123456") {
-        onVerified();
-      } else {
-        setError("Invalid OTP code. Please try again.");
-        setIsVerifying(false);
-      }
-    }, 1500);
+    try {
+      await api.verifyOTP(OTP_ACTION_TYPE, otp);
+      onVerified(otp); // Pass the verified OTP back to the parent
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Invalid OTP code. Please try again.";
+      setError(msg);
+      console.error("Error verifying OTP:", err);
+      setIsVerifying(false);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && otp.length === 6 && !isVerifying) {
+    if (e.key === "Enter" && otp.length === 6 && !isVerifying && otpSent) {
       handleVerify();
     }
   };
@@ -65,7 +81,7 @@ export default function MFAVerificationModal({
             </h3>
             <button
               onClick={onClose}
-              disabled={isVerifying}
+              disabled={isVerifying || requestingOtp}
               className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-50"
             >
               <svg
@@ -153,11 +169,17 @@ export default function MFAVerificationModal({
           </div>
 
           {/* OTP Sending Status */}
-          {!otpSent ? (
+          {requestingOtp ? (
             <div className="text-center py-6">
               <div className="animate-spin w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full mx-auto"></div>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-3">
-                Sending OTP code to your email...
+                Requesting OTP...
+              </p>
+            </div>
+          ) : !otpSent ? (
+            <div className="text-center py-6">
+              <p className="text-sm text-red-600 dark:text-red-400 mt-3">
+                {error || "Failed to send OTP. Please try again."}
               </p>
             </div>
           ) : (
@@ -213,13 +235,6 @@ export default function MFAVerificationModal({
                   </p>
                 </div>
               )}
-
-              {/* Demo Hint */}
-              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 text-center">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Demo OTP Code: <strong className="text-gray-900 dark:text-white">123456</strong>
-                </p>
-              </div>
             </>
           )}
         </div>
@@ -228,14 +243,14 @@ export default function MFAVerificationModal({
         <div className="border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-end gap-3">
           <button
             onClick={onClose}
-            disabled={isVerifying}
+            disabled={isVerifying || requestingOtp}
             className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancel
           </button>
           <button
             onClick={handleVerify}
-            disabled={!otpSent || otp.length !== 6 || isVerifying}
+            disabled={!otpSent || otp.length !== 6 || isVerifying || requestingOtp}
             className={`px-4 py-2 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
               action === "approve"
                 ? "bg-green-600 hover:bg-green-700"

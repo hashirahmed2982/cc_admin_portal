@@ -1,6 +1,6 @@
 // lib/api.ts
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://178.104.162.74:5000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 const API_VERSION = 'v1';
 
 class ApiService {
@@ -19,17 +19,32 @@ class ApiService {
     return headers;
   }
 
+  private getUserEmail(): string | null {
+    if (typeof window === 'undefined') return null;
+    try {
+      const userStr = localStorage.getItem('user');
+      if (!userStr) return null;
+      const user = JSON.parse(userStr);
+      return user.email || null;
+    } catch {
+      return null;
+    }
+  }
+
   private async handleResponse(response: Response) {
     const data = await response.json();
     if (!response.ok) {
       if (response.status === 401 && data.message?.includes('expired')) {
-        // const refreshed = await this.refreshToken();
-        // if (!refreshed && typeof window !== 'undefined') {
           localStorage.clear();
           window.location.href = '/login';
-        
       }
-      throw new Error(data.message || 'API request failed');
+      
+      const error = new Error(data.message || 'API request failed');
+      if (data.errors) {
+        (error as any).validationErrors = data.errors;
+        console.error('Validation Errors:', data.errors);
+      }
+      throw error;
     }
     return data;
   }
@@ -52,6 +67,20 @@ class ApiService {
     return this.request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password, mfaCode }) }, false);
   }
 
+  /** Request an OTP for a specific action (e.g., 'wallet_approval') */
+  async requestOTP(action: string) {
+    const email = this.getUserEmail();
+    if (!email) throw new Error("User email not found. Please log in again.");
+    return this.request('/auth/request-otp', { method: 'POST', body: JSON.stringify({ action, email }) });
+  }
+
+  /** Verify an OTP for a specific action */
+  async verifyOTP(action: string, otp: string) {
+    const email = this.getUserEmail();
+    if (!email) throw new Error("User email not found. Please log in again.");
+    return this.request('/auth/verify-otp', { method: 'POST', body: JSON.stringify({ action, otp, email }) });
+  }
+
   async refreshToken() {
     try {
       const refreshToken = localStorage.getItem('refreshToken');
@@ -69,6 +98,9 @@ class ApiService {
       await this.request('/auth/logout', { method: 'POST' });
     } finally {
       localStorage.clear();
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
     }
   }
 
@@ -97,12 +129,6 @@ class ApiService {
     return this.request(`/users/${userId}`);
   }
 
-  /**
-   * Create a new user account.
-   * - user_type: 'admin'      → only super_admin can do this (also enforced on backend)
-   * - user_type: 'b2b_client' → both super_admin and admin can do this
-   * Viewer accounts go through createViewerAccount() instead.
-   */
   async createUser(userData: {
     email: string;
     password: string;
@@ -133,9 +159,6 @@ class ApiService {
     return this.request(`/users/${userId}/reset-password`, { method: 'POST' });
   }
 
-  /**
-   * Permanently block user
-   */
   async permanentlyBlockUser(userId: number, reason: string, walletSettled?: boolean, settlementDetails?: {
     settlementMethod: string;
     transactionReference: string;
@@ -148,9 +171,6 @@ class ApiService {
     });
   }
 
-  /**
-   * Settle blocked user wallet
-   */
   async settleUserWallet(
     userId: number,
     settlementData: {
@@ -166,9 +186,6 @@ class ApiService {
     });
   }
 
-
-  // ─── VIEWER ACCOUNTS (under a b2b_client) ────────────────────────────────
-
   async getViewerAccounts(userId: number) {
     return this.request(`/users/${userId}/viewer-accounts`);
   }
@@ -179,12 +196,11 @@ class ApiService {
   
 
   // ─── PRODUCTS ────────────────────────────────────────────────────────────
-/** Admin: get all products with visibility + custom price config for a user */
+
   async getUserProductConfig(id: number) {
     return this.request(`/users/${id}/products`);
   }
  
-  /** Admin: save product visibility + custom pricing for a user */
   async saveUserProductConfig(id: number, configs: {
     id: string; visible: boolean; customPrice?: number; useCustomPrice: boolean;
   }[]) {
@@ -193,6 +209,7 @@ class ApiService {
       body: JSON.stringify({ configs }),
     });
   }
+
   async getUserProductAccess(userId: number) {
     return this.request(`/users/${userId}/products`);
   }
@@ -201,11 +218,8 @@ class ApiService {
     return this.request(`/users/${userId}/products`, { method: 'PUT', body: JSON.stringify({ productAccess }) });
   }
 
-  // ─── WALLET ──────────────────────────────────────────────────────────────
-
   // ─── WALLET – ADMIN ───────────────────────────────────────────────────────
 
-  /** All wallet balances (admin wallet balances table) */
   async getAllWalletBalances(filters?: { page?: number; limit?: number; search?: string }) {
     const params = new URLSearchParams();
     if (filters?.page)   params.append('page',   String(filters.page));
@@ -214,14 +228,12 @@ class ApiService {
     return this.request(`/wallet/balances${params.toString() ? `?${params}` : ''}`);
   }
 
-  /** All topup requests with optional status filter */
   async getTopupRequests(status?: string, page = 1, limit = 20) {
     const params = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (status) params.append('status', status);
     return this.request(`/wallet/topup-requests?${params}`);
   }
 
-  /** Approve a topup request — requires MFA */
   async approveTopup(requestId: number, mfaCode: string) {
     return this.request(`/wallet/topup/${requestId}/approve`, {
       method: 'POST',
@@ -229,7 +241,6 @@ class ApiService {
     });
   }
 
-  /** Reject a topup request — requires MFA */
   async rejectTopup(requestId: number, reason: string, mfaCode: string) {
     return this.request(`/wallet/topup/${requestId}/reject`, {
       method: 'POST',
@@ -237,7 +248,6 @@ class ApiService {
     });
   }
 
-  /** All transactions across all wallets (admin history table) */
   async getAllTransactions(filters?: { page?: number; limit?: number; userId?: number; type?: string }) {
     const params = new URLSearchParams();
     if (filters?.page)   params.append('page',   String(filters.page));
@@ -246,11 +256,7 @@ class ApiService {
     if (filters?.type)   params.append('type',   filters.type);
     return this.request(`/wallet/transactions/all${params.toString() ? `?${params}` : ''}`);
   }
-// ============================================
-  // PRODUCTS
-  // ============================================
 
-  /** List products — optional filter by source='internal'|'carrypin' */
   async getProducts(f?: {
     page?: number; limit?: number; search?: string;
     category?: string; brand?: string; status?: string;
@@ -275,9 +281,6 @@ class ApiService {
     return this.request(`/products/${id}`);
   }
  
-  /**
-   * Create an INTERNAL product (manually managed codes).
-   */
   async createInternalProduct(d: {
     name: string; category: string; brand: string;
     description: string; redemptionInstructions: string;
@@ -286,16 +289,13 @@ class ApiService {
     return this.request('/products/internal', { method: 'POST', body: JSON.stringify(d) });
   }
  
-  /**
-   * Create a SUPPLIER product (real-time fulfilment, no stored codes).
-   */
   async createSupplierProduct(d: {
     name: string; category: string; brand: string;
     description: string; redemptionInstructions: string;
     price: number; costPrice?: number; faceValue?: number;
-    supplierName: string;   // 'carrypin'
-    supplierRef: string;    // SPU ID
-    supplierSkuRef?: string;// SKU/denomination ID
+    supplierName: string;
+    supplierRef: string;
+    supplierSkuRef?: string;
     realtimePrice?: boolean;
     syncEnabled?: boolean;
     images?: string[];
@@ -315,7 +315,6 @@ class ApiService {
     return this.request(`/products/${id}`, { method: 'DELETE' });
   }
  
-  /** Codes (internal products only) */
   async getProductCodes(id: string | number, f?: { page?: number; limit?: number; status?: string }) {
     const p = new URLSearchParams();
     if (f?.page)   p.append('page',   String(f.page));
@@ -324,7 +323,6 @@ class ApiService {
     return this.request(`/products/${id}/codes${p.toString() ? '?' + p : ''}`);
   }
  
-  /** Upload Excel codes (internal products only) */
   async uploadProductCodes(id: string | number, file: File) {
     const fd = new FormData();
     fd.append('file', file);
@@ -337,7 +335,6 @@ class ApiService {
     return this.handleResponse(res);
   }
  
-  /** Parse Excel file server-side, returns preview rows without writing to DB */
   async importExcelPreview(file: File) {
     const fd = new FormData();
     fd.append('file', file);
@@ -350,24 +347,23 @@ class ApiService {
     return this.handleResponse(res);
   }
  
-  /** Bulk-create internal products from parsed row array */
   async importBulkProducts(rows: any[]) {
     return this.request('/products/import-bulk', { method: 'POST', body: JSON.stringify({ rows }) });
   }
  
- 
   async checkProductStock(id: string | number) {
     return this.request(`/products/${id}/stock-check`);
   }
+
   async uploadProductCodesJson(id: string | number, entries: { code: string; status: string }[], fileName: string) {
     return this.request(`/products/${id}/upload-codes-json`, {
       method: 'POST',
       body: JSON.stringify({ entries, fileName }),
     });
   }
- // ── ORDERS (ADMIN) ─────────────────────────────────────────────────────────
- 
-  /** Admin: all orders across all clients */
+
+  // ─── ORDERS ──────────────────────────────────────────────────────────────
+
   async getAllOrders(params?: { status?: string; userId?: number; page?: number; limit?: number }) {
     const p = new URLSearchParams();
     if (params?.status) p.set('status', params.status);
@@ -377,12 +373,10 @@ class ApiService {
     return this.request(`/orders/admin/all${p.toString() ? '?' + p : ''}`);
   }
  
-  /** Admin: single order with full delivery breakdown */
   async getAdminOrderById(id: string | number) {
     return this.request(`/orders/admin/${id}`);
   }
  
-  /** Admin: fulfill remaining items and notify client */
   async completeOrder(id: string | number) {
     return this.request(`/orders/admin/${id}/complete`, { method: 'POST' });
   }

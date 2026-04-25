@@ -2,6 +2,7 @@
 
 import Dashboard from "@/components/Dashboard";
 import { useState, useCallback, useEffect, useRef, JSX } from "react";
+import GenericOTPModal from "@/components/GenericOTPModal";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -149,27 +150,22 @@ function BarChart({ data, height = 220 }: { data: ChartPoint[]; height?: number 
 
         return (
           <g key={i}>
-            {/* Bar shadow */}
             <rect x={x + 3} y={y + 3} width={barW} height={barH} rx={6} fill={color} opacity={0.15} />
-            {/* Bar */}
             <rect
               x={x} y={y} width={barW} height={barH} rx={6}
               fill={`url(#grad-${i})`}
               style={{ transition: "height 0.7s cubic-bezier(0.34,1.56,0.64,1), y 0.7s cubic-bezier(0.34,1.56,0.64,1)" }}
             />
-            {/* Value label */}
             {barH > 20 && (
               <text x={x + barW / 2} y={y - 6} textAnchor="middle" fontSize={10} fontWeight="600" fill={color}>
                 {fmt(d.value)}
               </text>
             )}
-            {/* X axis label */}
             <text x={x + barW / 2} y={H - PAD.bottom + 16} textAnchor="middle" fontSize={10} fill="currentColor" fillOpacity={0.6}>
               {d.label.length > 10 ? d.label.slice(0, 9) + "…" : d.label}
             </text>
-            {/* Gradient def */}
             <defs>
-              <linearGradient id={`grad-${i}`} x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id={`grad-${i}`} x1="0" x2="0" y1="0" y2="1">
                 <stop offset="0%" stopColor={color} stopOpacity={1} />
                 <stop offset="100%" stopColor={color} stopOpacity={0.6} />
               </linearGradient>
@@ -269,7 +265,6 @@ function LineChart({ data, color = "#f59e0b", height = 180 }: { data: ChartPoint
           <stop offset="100%" stopColor={color} stopOpacity={0} />
         </linearGradient>
       </defs>
-      {/* Horizontal grid */}
       {[0,0.25,0.5,0.75,1].map((t, i) => {
         const val = min + range * (1 - t);
         const y = PAD.top + innerH * t;
@@ -280,14 +275,11 @@ function LineChart({ data, color = "#f59e0b", height = 180 }: { data: ChartPoint
           </g>
         );
       })}
-      {/* Area fill */}
       <path d={areaPath} fill="url(#linearea)" />
-      {/* Line */}
       <path ref={pathRef} d={linePath} fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"
         strokeDasharray={pathLen} strokeDashoffset={animated ? 0 : pathLen}
         style={{ transition: "stroke-dashoffset 1s ease-in-out" }}
       />
-      {/* Dots */}
       {pts.map((p, i) => (
         <g key={i}>
           <circle cx={p.x} cy={p.y} r={5} fill="white" stroke={color} strokeWidth={2} className="dark:fill-gray-800"
@@ -406,13 +398,12 @@ function exportJSON(report: ReportType, data: { columns: string[]; rows: any[][]
   a.download = `${report.id}-${new Date().toISOString().split("T")[0]}.json`; a.click();
 }
 
-// ─── Date Range Modal ─────────────────────────────────────────────────────────
+// ─── Date Range Step ──────────────────────────────────────────────────────────
 
-function DateRangeModal({ report, onConfirm, onClose }: { report: ReportType; onConfirm: (dr: DateRange) => void; onClose: () => void }) {
+function DateRangeStep({ report, onConfirm, onCancel }: { report: ReportType; onConfirm: (dr: DateRange) => void; onCancel: () => void }) {
   const today = new Date().toISOString().split("T")[0];
   const [dr, setDr] = useState<DateRange>({ from: "", to: today });
   const [err, setErr] = useState("");
-  const meta = CATEGORY_META[report.category];
 
   const confirm = () => {
     if (!dr.from || !dr.to) { setErr("Both dates required"); return; }
@@ -422,44 +413,35 @@ function DateRangeModal({ report, onConfirm, onClose }: { report: ReportType; on
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-        {/* Accent top bar */}
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200">
         <div className="h-1.5" style={{ backgroundColor: report.accentColor }} />
         <div className="p-6">
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white" style={{ backgroundColor: report.accentColor }}>
-              <CalendarIcon />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-gray-900 dark:text-white">{report.name}</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Select date range</p>
-            </div>
-          </div>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">{report.name}</h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-5">Select report date range</p>
 
-          <div className="mt-5 space-y-3">
+          <div className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1.5">From</label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1.5">From Date</label>
               <input type="date" value={dr.from} max={today} onChange={e => { setDr({ ...dr, from: e.target.value }); setErr(""); }}
-                className="w-full px-3 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2"
-                style={{ "--tw-ring-color": report.accentColor } as any}
+                className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1.5">To</label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1.5">To Date</label>
               <input type="date" value={dr.to} max={today} onChange={e => { setDr({ ...dr, to: e.target.value }); setErr(""); }}
-                className="w-full px-3 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2"
+                className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
               />
             </div>
-            {err && <p className="text-xs text-red-500">{err}</p>}
+            {err && <p className="text-xs text-red-500 font-medium">{err}</p>}
           </div>
 
-          <div className="flex gap-3 mt-6">
-            <button onClick={onClose} className="flex-1 px-4 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+          <div className="flex gap-3 mt-8">
+            <button onClick={onCancel} className="flex-1 px-4 py-2.5 text-gray-500 dark:text-gray-400 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl transition-colors">
               Cancel
             </button>
-            <button onClick={confirm} className="flex-1 px-4 py-2.5 text-white rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
+            <button onClick={confirm} className="flex-1 px-4 py-2.5 text-white font-bold rounded-xl shadow-lg shadow-blue-500/20"
               style={{ backgroundColor: report.accentColor }}>
-              View Report
+              Next: Verify MFA
             </button>
           </div>
         </div>
@@ -474,21 +456,15 @@ function ReportViewer({ report, dateRange, onClose }: { report: ReportType; date
   const data = getMockData(report.id);
   const meta = CATEGORY_META[report.category];
 
-  // Summary KPIs (first row, first 3 numeric-ish cols)
   const kpis = data.rows.length > 0 ? data.columns.slice(1, 4).map((col, i) => ({
     label: col, value: data.rows[0][i + 1] as string,
   })) : [];
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 pt-6">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-5xl mb-6 overflow-hidden">
-
-        {/* Gradient header */}
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-5xl mb-6 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
         <div className="relative px-8 py-6 overflow-hidden" style={{ background: `linear-gradient(135deg, ${report.accentColor}22 0%, ${report.accentColor}08 100%)` }}>
-          {/* Decorative circle */}
           <div className="absolute -right-16 -top-16 w-48 h-48 rounded-full opacity-10" style={{ backgroundColor: report.accentColor }} />
-          <div className="absolute -right-8 top-8 w-24 h-24 rounded-full opacity-10" style={{ backgroundColor: report.accentColor }} />
-
           <div className="relative flex items-start justify-between">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-2xl text-white flex items-center justify-center shadow-lg flex-shrink-0"
@@ -510,14 +486,10 @@ function ReportViewer({ report, dateRange, onClose }: { report: ReportType; date
                 )}
               </div>
             </div>
-            <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 transition-colors flex-shrink-0">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+            <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 transition-colors">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
           </div>
-
-          {/* KPI strip */}
           {kpis.length > 0 && (
             <div className="flex gap-4 mt-5">
               {kpis.map((kpi, i) => (
@@ -533,38 +505,19 @@ function ReportViewer({ report, dateRange, onClose }: { report: ReportType; date
             </div>
           )}
         </div>
-
-        {/* Toolbar */}
         <div className="flex items-center justify-between px-8 py-3 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-700/60">
           <div className="flex flex-wrap gap-1.5">
             {report.keyFields.map((f, i) => (
-              <span key={i} className="px-2 py-0.5 text-xs rounded-md border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
-                {f}
-              </span>
+              <span key={i} className="px-2 py-0.5 text-xs rounded-md border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">{f}</span>
             ))}
           </div>
           <div className="flex gap-2 flex-shrink-0 ml-4">
-            <button onClick={() => exportCSV(report, data)}
-              className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-              <DownloadIcon /> CSV
-            </button>
-            <button onClick={() => exportJSON(report, data)}
-              className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg text-white transition-opacity hover:opacity-90"
-              style={{ backgroundColor: report.accentColor }}>
-              <DownloadIcon /> JSON
-            </button>
+            <button onClick={() => exportCSV(report, data)} className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 transition-colors"><DownloadIcon /> CSV</button>
+            <button onClick={() => exportJSON(report, data)} className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg text-white transition-opacity hover:opacity-90" style={{ backgroundColor: report.accentColor }}><DownloadIcon /> JSON</button>
           </div>
         </div>
-
-        {/* Chart section */}
         {data.chartData && data.chartData.length > 0 && (
           <div className="px-8 py-6 border-b border-gray-100 dark:border-gray-700/60">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-1 h-5 rounded-full" style={{ backgroundColor: report.accentColor }} />
-              <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">
-                {report.viewType === "donut+table" ? "Stock Distribution" : report.viewType === "line+table" ? "Trend Overview" : "Performance Breakdown"}
-              </h3>
-            </div>
             <div className="bg-gray-50/60 dark:bg-gray-800/40 rounded-2xl p-4">
               {report.viewType === "donut+table" && <DonutChart data={data.chartData} />}
               {report.viewType === "line+table" && <LineChart data={data.chartData} color={report.accentColor} />}
@@ -572,24 +525,11 @@ function ReportViewer({ report, dateRange, onClose }: { report: ReportType; date
             </div>
           </div>
         )}
-
-        {/* Table section */}
         <div className="px-8 py-6">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-1 h-5 rounded-full" style={{ backgroundColor: report.accentColor }} />
-            <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">Data Table</h3>
-            <span className="ml-auto text-xs text-gray-400">{data.rows.length} records</span>
-          </div>
-          {report.viewType === "table+aging"
-            ? <AgingTable columns={data.columns} rows={data.rows} />
-            : <DataTable columns={data.columns} rows={data.rows} accentColor={report.accentColor} />
-          }
+          {report.viewType === "table+aging" ? <AgingTable columns={data.columns} rows={data.rows} /> : <DataTable columns={data.columns} rows={data.rows} accentColor={report.accentColor} />}
         </div>
-
         <div className="px-8 py-4 border-t border-gray-100 dark:border-gray-700/60 flex justify-end">
-          <button onClick={onClose} className="px-6 py-2.5 text-sm font-semibold rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-            Close
-          </button>
+          <button onClick={onClose} className="px-6 py-2.5 text-sm font-semibold rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 transition-colors">Close</button>
         </div>
       </div>
     </div>
@@ -600,84 +540,25 @@ function ReportViewer({ report, dateRange, onClose }: { report: ReportType; date
 
 function ReportCard({ report, onView, index }: { report: ReportType; onView: () => void; index: number }) {
   const meta = CATEGORY_META[report.category];
-  const hasChart = report.viewType !== "table";
-
   return (
-    <div
-      className="group relative bg-white dark:bg-gray-800/80 rounded-2xl border border-gray-100 dark:border-gray-700/60 overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col"
-      style={{ animationDelay: `${index * 60}ms` }}
-      onClick={onView}
-    >
-      {/* Accent top stripe */}
+    <div className="group relative bg-white dark:bg-gray-800/80 rounded-2xl border border-gray-100 dark:border-gray-700/60 overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col"
+      style={{ animationDelay: `${index * 60}ms` }} onClick={onView}>
       <div className="h-1" style={{ backgroundColor: report.accentColor }} />
-
-      {/* Glowing background effect on hover */}
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-2xl"
-        style={{ background: `radial-gradient(ellipse at top left, ${report.accentColor}10 0%, transparent 70%)` }}
-      />
-
       <div className="p-5 flex flex-col flex-1 relative">
-        {/* Header */}
         <div className="flex items-start justify-between mb-4">
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white shadow-sm group-hover:scale-110 transition-transform duration-300 flex-shrink-0"
-            style={{ backgroundColor: report.accentColor }}>
+          <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white shadow-sm" style={{ backgroundColor: report.accentColor }}>
             <div className="w-5 h-5">{getCategoryIcon(report.category)}</div>
           </div>
-          <span className={`px-2 py-0.5 text-xs font-semibold rounded-full border ${meta.light} ${meta.text} ${meta.border}`}>
-            {meta.label}
-          </span>
+          <span className={`px-2 py-0.5 text-xs font-semibold rounded-full border ${meta.light} ${meta.text} ${meta.border}`}>{meta.label}</span>
         </div>
-
-        {/* Title & description */}
-        <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-1.5 leading-snug group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-          {report.name}
-        </h3>
-        <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed mb-4 flex-1">
-          {report.description}
-        </p>
-
-        {/* Key fields */}
-        <div className="flex flex-wrap gap-1 mb-4">
-          {report.keyFields.slice(0, 3).map((f, i) => (
-            <span key={i} className="px-1.5 py-0.5 text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-md">
-              {f}
-            </span>
-          ))}
-          {report.keyFields.length > 3 && (
-            <span className="px-1.5 py-0.5 text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-400 rounded-md">
-              +{report.keyFields.length - 3}
-            </span>
-          )}
-        </div>
-
-        {/* Footer */}
+        <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-1.5 leading-snug">{report.name}</h3>
+        <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed mb-4 flex-1">{report.description}</p>
         <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700/50">
-          <div className="flex gap-2">
-            {hasChart && (
-              <div className="flex items-center gap-1 text-[10px] text-gray-400">
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-                Chart
-              </div>
-            )}
-            {report.needsDateRange && (
-              <div className="flex items-center gap-1 text-[10px] text-gray-400">
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                Date filter
-              </div>
-            )}
+          <div className="flex gap-2 text-[10px] text-gray-400">
+            {report.viewType !== "table" && <span className="flex items-center gap-0.5"><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>Chart</span>}
+            {report.needsDateRange && <span className="flex items-center gap-0.5"><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>Dates</span>}
           </div>
-          <div className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg text-white transition-opacity hover:opacity-80"
-            style={{ backgroundColor: report.accentColor }}>
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-            </svg>
-            View
-          </div>
+          <div className="text-xs font-bold px-3 py-1.5 rounded-lg text-white" style={{ backgroundColor: report.accentColor }}>View Report</div>
         </div>
       </div>
     </div>
@@ -691,6 +572,8 @@ export default function ReportingAnalyticsPage() {
   const [search, setSearch] = useState("");
   const [viewingReport, setViewingReport] = useState<ReportType | null>(null);
   const [pendingReport, setPendingReport] = useState<ReportType | null>(null);
+  const [reportDateRange, setReportDateRange] = useState<DateRange | null>(null);
+  const [showMFA, setShowMFA] = useState(false);
   const [activeDateRange, setActiveDateRange] = useState<DateRange>({ from: "", to: "" });
 
   const filtered = REPORTS.filter(r => {
@@ -699,20 +582,28 @@ export default function ReportingAnalyticsPage() {
     return matchesCat && matchesSearch;
   });
 
-  const handleView = useCallback((report: ReportType) => {
+  const handleViewRequest = (report: ReportType) => {
+    setPendingReport(report);
     if (report.needsDateRange) {
-      setPendingReport(report);
+      // Show date picker first
     } else {
-      setActiveDateRange({ from: "", to: "" });
-      setViewingReport(report);
+      setShowMFA(true);
     }
-  }, []);
+  };
 
-  const handleDateConfirmed = (dr: DateRange) => {
+  const onDateConfirmed = (dr: DateRange) => {
+    setReportDateRange(dr);
+    setShowMFA(true);
+  };
+
+  const onMFAVerified = (otp: string) => {
     if (!pendingReport) return;
-    setActiveDateRange(dr);
+    // OTP verified, now show the report (using provided otp if needed for real API call later)
+    if (reportDateRange) setActiveDateRange(reportDateRange);
     setViewingReport(pendingReport);
+    setShowMFA(false);
     setPendingReport(null);
+    setReportDateRange(null);
   };
 
   const categoryCounts = Object.keys(CATEGORY_META).reduce((acc, k) => {
@@ -723,111 +614,66 @@ export default function ReportingAnalyticsPage() {
   return (
     <Dashboard>
       <div className="space-y-6">
-
-        {/* Page Header */}
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div>
-            <h2 className="text-3xl font-bold text-gray-800 dark:text-white tracking-tight">
-              Reporting & Analytics
-            </h2>
-            <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">
-              View live reports with charts and tables — export to CSV or JSON anytime
-            </p>
+            <h2 className="text-3xl font-bold text-gray-800 dark:text-white tracking-tight">Reporting & Analytics</h2>
+            <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">View live reports with charts and tables</p>
           </div>
-          <div className="flex items-center gap-2 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 px-5 py-3 shadow-sm">
-            <div className="text-2xl font-bold text-gray-800 dark:text-white">{REPORTS.length}</div>
-            <div className="text-xs text-gray-400 leading-tight">Reports<br/>available</div>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 px-5 py-3 shadow-sm flex items-center gap-2">
+            <span className="text-2xl font-bold">{REPORTS.length}</span>
+            <span className="text-xs text-gray-400">Reports<br/>Total</span>
           </div>
         </div>
 
-        {/* Category pills row */}
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-          {(Object.entries(CATEGORY_META) as [string, any][]).map(([key, meta]) => (
+          {Object.entries(CATEGORY_META).map(([key, meta]) => (
             <button key={key} onClick={() => setActiveCategory(activeCategory === key ? "all" : key)}
-              className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all text-center ${
-                activeCategory === key
-                  ? `border-transparent text-white shadow-lg`
-                  : "border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-200 dark:hover:border-gray-600"
-              }`}
+              className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all ${activeCategory === key ? "text-white shadow-lg" : "border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800"}`}
               style={activeCategory === key ? { backgroundColor: meta.color, borderColor: meta.color } : {}}>
-              <span className={`text-xl font-bold ${activeCategory === key ? "text-white" : "text-gray-800 dark:text-white"}`}>
-                {categoryCounts[key]}
-              </span>
-              <span className={`text-[10px] mt-0.5 leading-tight font-medium ${activeCategory === key ? "text-white/80" : "text-gray-400"}`}>
-                {meta.label}
-              </span>
+              <span className="text-xl font-bold">{categoryCounts[key]}</span>
+              <span className="text-[10px] uppercase font-bold tracking-wider opacity-80">{meta.label}</span>
             </button>
           ))}
         </div>
 
-        {/* Search + filter row */}
-        <div className="flex flex-col sm:flex-row gap-3 items-center">
-          <div className="relative flex-1 w-full">
-            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input type="text" placeholder="Search reports…" value={search} onChange={e => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-800 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-            />
-          </div>
-          <button onClick={() => { setSearch(""); setActiveCategory("all"); }}
-            className="px-4 py-2.5 text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors whitespace-nowrap">
-            Clear filters
-          </button>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filtered.map((report, i) => (
+            <ReportCard key={report.id} report={report} index={i} onView={() => handleViewRequest(report)} />
+          ))}
         </div>
-
-        {/* Active filter label */}
-        {(activeCategory !== "all" || search) && (
-          <div className="flex items-center gap-2">
-            {activeCategory !== "all" && (
-              <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-white"
-                style={{ backgroundColor: CATEGORY_META[activeCategory as keyof typeof CATEGORY_META]?.color }}>
-                {CATEGORY_META[activeCategory as keyof typeof CATEGORY_META]?.label}
-                <button onClick={() => setActiveCategory("all")} className="hover:opacity-70">✕</button>
-              </span>
-            )}
-            {search && (
-              <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
-                "{search}"
-                <button onClick={() => setSearch("")} className="hover:opacity-70">✕</button>
-              </span>
-            )}
-            <span className="text-xs text-gray-400">{filtered.length} result{filtered.length !== 1 ? "s" : ""}</span>
-          </div>
-        )}
-
-        {/* Report grid */}
-        {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
-              <svg className="w-8 h-8 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-            <p className="font-semibold text-gray-600 dark:text-gray-300">No reports found</p>
-            <p className="text-sm text-gray-400 mt-1">Try adjusting your search or category filter</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filtered.map((report, i) => (
-              <ReportCard key={report.id} report={report} index={i} onView={() => handleView(report)} />
-            ))}
-          </div>
-        )}
       </div>
 
-      {pendingReport && (
-        <DateRangeModal report={pendingReport} onConfirm={handleDateConfirmed} onClose={() => setPendingReport(null)} />
+      {/* Workflow: Step 1 - Date Range (if required) */}
+      {pendingReport && pendingReport.needsDateRange && !reportDateRange && !showMFA && (
+        <DateRangeStep report={pendingReport} onConfirm={onDateConfirmed} onCancel={() => setPendingReport(null)} />
       )}
 
+      {/* Workflow: Step 2 - MFA Verification */}
+      {showMFA && pendingReport && (
+        <GenericOTPModal
+          title="Verify Report Request"
+          description={`Please enter the code sent to your email to generate the ${pendingReport.name}.`}
+          actionType="report_generation_action"
+          confirmButtonText="Verify & View Report"
+          details={
+            <div className="text-sm">
+              <p className="text-gray-500 font-medium">Requesting Report:</p>
+              <p className="text-gray-900 dark:text-white font-bold">{pendingReport.name}</p>
+              {reportDateRange && <p className="text-blue-600 font-semibold mt-1">📅 {reportDateRange.from} to {reportDateRange.to}</p>}
+            </div>
+          }
+          onVerified={onMFAVerified}
+          onClose={() => { setShowMFA(false); setPendingReport(null); setReportDateRange(null); }}
+        />
+      )}
+
+      {/* Final Step: Show Report */}
       {viewingReport && (
         <ReportViewer report={viewingReport} dateRange={activeDateRange} onClose={() => setViewingReport(null)} />
       )}
     </Dashboard>
   );
 }
-
-// ─── Utility: category icon ───────────────────────────────────────────────────
 
 function getCategoryIcon(cat: string) {
   const icons: Record<string, JSX.Element> = {
@@ -839,10 +685,6 @@ function getCategoryIcon(cat: string) {
     "automation":    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>,
   };
   return icons[cat] || <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>;
-}
-
-function CalendarIcon() {
-  return <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
 }
 
 function DownloadIcon() {

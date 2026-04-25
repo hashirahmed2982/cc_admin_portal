@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { ReportType } from "@/app/reports/page";
+import { api } from "@/lib/api";
 
 interface RequestReport2FAModalProps {
   report: ReportType;
   onClose: () => void;
-  onConfirm: (dateRange?: { from: string; to: string }) => void;
+  onConfirm: (dateRange?: { from: string; to: string }, otp?: string) => void;
 }
 
 export default function RequestReport2FAModal({
@@ -18,6 +19,7 @@ export default function RequestReport2FAModal({
   const [error, setError] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
+  const [requestingOtp, setRequestingOtp] = useState(false);
 
   const [dateRange, setDateRange] = useState({
     from: "",
@@ -28,15 +30,27 @@ export default function RequestReport2FAModal({
     report.id
   );
 
+  const OTP_ACTION_TYPE = "report_generation_action";
+
   useEffect(() => {
-    // Simulate sending OTP
-    setTimeout(() => {
-      setOtpSent(true);
-      console.log("OTP sent to super admin email: 123456");
-    }, 1000);
+    const sendOtpRequest = async () => {
+      setRequestingOtp(true);
+      setError("");
+      try {
+        await api.requestOTP(OTP_ACTION_TYPE);
+        setOtpSent(true);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Failed to request OTP.";
+        setError(msg);
+      } finally {
+        setRequestingOtp(false);
+      }
+    };
+
+    sendOtpRequest();
   }, []);
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     if (otp.length !== 6) {
       setError("Please enter a 6-digit OTP code");
       return;
@@ -55,19 +69,18 @@ export default function RequestReport2FAModal({
     setIsVerifying(true);
     setError("");
 
-    // Simulate OTP verification
-    setTimeout(() => {
-      if (otp === "123456") {
-        onConfirm(needsDateRange ? dateRange : undefined);
-      } else {
-        setError("Invalid OTP code. Please try again.");
-        setIsVerifying(false);
-      }
-    }, 1500);
+    try {
+      await api.verifyOTP(OTP_ACTION_TYPE, otp);
+      onConfirm(needsDateRange ? dateRange : undefined, otp);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Invalid OTP code. Please try again.";
+      setError(msg);
+      setIsVerifying(false);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && otp.length === 6 && !isVerifying) {
+    if (e.key === "Enter" && otp.length === 6 && !isVerifying && otpSent) {
       handleVerify();
     }
   };
@@ -82,7 +95,7 @@ export default function RequestReport2FAModal({
             </h3>
             <button
               onClick={onClose}
-              disabled={isVerifying}
+              disabled={isVerifying || requestingOtp}
               className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-50"
             >
               <svg
@@ -106,9 +119,6 @@ export default function RequestReport2FAModal({
           {/* Report Details */}
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
             <div className="flex gap-3">
-              {/* <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/40 rounded-lg flex items-center justify-center text-blue-600 dark:text-blue-400 flex-shrink-0">
-                {report.icon}
-              </div> */}
               <div className="flex-1">
                 <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
                   {report.name}
@@ -117,22 +127,6 @@ export default function RequestReport2FAModal({
                   {report.description}
                 </p>
                 <div className="flex items-center gap-3 mt-2 text-xs text-blue-600 dark:text-blue-400">
-                  {/* <span className="flex items-center gap-1">
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    {report.estimatedTime}
-                  </span> */}
                   <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/40 rounded">
                     {report.category}
                   </span>
@@ -181,11 +175,17 @@ export default function RequestReport2FAModal({
           )}
 
           {/* OTP Section */}
-          {!otpSent ? (
+          {requestingOtp ? (
             <div className="text-center py-6">
               <div className="animate-spin w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full mx-auto"></div>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-3">
-                Sending OTP code to superadmin@company.com...
+                Requesting OTP code...
+              </p>
+            </div>
+          ) : !otpSent ? (
+            <div className="text-center py-6">
+              <p className="text-sm text-red-600 dark:text-red-400 mt-3">
+                {error || "Failed to send OTP. Please try again."}
               </p>
             </div>
           ) : (
@@ -207,7 +207,7 @@ export default function RequestReport2FAModal({
                     />
                   </svg>
                   <p className="text-sm text-green-700 dark:text-green-300">
-                    ✓ OTP sent to superadmin@company.com
+                    ✓ OTP code has been sent to your registered email address
                   </p>
                 </div>
               </div>
@@ -242,13 +242,6 @@ export default function RequestReport2FAModal({
                 </div>
               )}
 
-              {/* Demo Hint */}
-              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 text-center">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Demo OTP Code: <strong className="text-gray-900 dark:text-white">123456</strong>
-                </p>
-              </div>
-
               {/* Security Notice */}
               <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
                 <div className="flex gap-2">
@@ -266,8 +259,8 @@ export default function RequestReport2FAModal({
                     />
                   </svg>
                   <p className="text-xs text-yellow-700 dark:text-yellow-300">
-                    The report will be generated as a PDF and sent directly to your
-                    registered email. It will NOT be displayed on the portal.
+                    The report will be generated and sent directly to your
+                    registered email.
                   </p>
                 </div>
               </div>
@@ -279,14 +272,14 @@ export default function RequestReport2FAModal({
         <div className="border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-end gap-3">
           <button
             onClick={onClose}
-            disabled={isVerifying}
+            disabled={isVerifying || requestingOtp}
             className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             onClick={handleVerify}
-            disabled={!otpSent || otp.length !== 6 || isVerifying}
+            disabled={!otpSent || otp.length !== 6 || isVerifying || requestingOtp}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isVerifying ? (
@@ -310,10 +303,10 @@ export default function RequestReport2FAModal({
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   />
                 </svg>
-                Generating Report...
+                Verifying...
               </span>
             ) : (
-              "Generate & Email Report"
+              "Verify & Request Report"
             )}
           </button>
         </div>
