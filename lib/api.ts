@@ -55,6 +55,20 @@ class ApiService {
     return this.request('/admin/dashboard');
   }
 
+  /** Request an OTP for a specific action (e.g., 'wallet_approval') */
+  async requestOTP(action: string) {
+    const email = this.getUserEmail();
+    if (!email) throw new Error("User email not found. Please log in again.");
+    return this.request('/auth/request-otp', { method: 'POST', body: JSON.stringify({ action, email }) });
+  }
+
+  /** Verify an OTP for a specific action */
+  async verifyOTP(action: string, otp: string) {
+    const email = this.getUserEmail();
+    if (!email) throw new Error("User email not found. Please log in again.");
+    return this.request('/auth/verify-otp', { method: 'POST', body: JSON.stringify({ action, otp, email }) });
+  }
+
   async refreshToken() {
     try {
       const refreshToken = localStorage.getItem('refreshToken');

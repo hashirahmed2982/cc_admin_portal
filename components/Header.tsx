@@ -3,12 +3,15 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
+import { useSearch } from "@/app/context/SearchContext";
+
 interface HeaderProps {
   onMenuClick: () => void;
 }
 
 export default function Header({ onMenuClick }: HeaderProps) {
   const { user, logout, getInitials } = useAuth();
+  const { searchTerm, setSearchTerm } = useSearch();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const router = useRouter();
 
@@ -36,11 +39,18 @@ export default function Header({ onMenuClick }: HeaderProps) {
 
           {/* Search */}
           <div className="hidden md:block">
-            <input
-              type="search"
-              placeholder="Search..."
-              className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <div className="relative">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="search"
+                placeholder="Search products, users..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 pr-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 w-64 lg:w-80"
+              />
+            </div>
           </div>
 
           {/* Notifications */}
@@ -68,7 +78,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
                   {user?.full_name || "Loading..."}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 capitalize leading-tight">
-                  {user?.role_name || ""}
+                  {user?.user_type || ""}
                 </p>
               </div>
 
@@ -81,12 +91,9 @@ export default function Header({ onMenuClick }: HeaderProps) {
             {/* Dropdown */}
             {dropdownOpen && (
               <>
-                {/* Backdrop to close on outside click */}
                 <div className="fixed inset-0 z-10" onClick={() => setDropdownOpen(false)} />
 
                 <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-20 overflow-hidden">
-
-                  {/* User info */}
                   <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold flex-shrink-0">
@@ -96,31 +103,15 @@ export default function Header({ onMenuClick }: HeaderProps) {
                         <p className="text-sm font-semibold text-gray-800 dark:text-white truncate">
                           {user?.full_name || "—"}
                         </p>
-                        {/* <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                          {user?.email || "—"}
-                        </p> */}
-                        {user?.role_name && (
+                        {user?.user_type && (
                           <span className="inline-block mt-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full capitalize">
-                            {user.role_name}
+                            {user.user_type}
                           </span>
                         )}
                       </div>
                     </div>
                   </div>
 
-                  {/* Company (if present) */}
-                  {user?.company_name && (
-                    <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-700">
-                      <p className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">
-                        Company
-                      </p>
-                      <p className="text-sm text-gray-700 dark:text-gray-300 truncate">
-                        {user.company_name}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Menu actions */}
                   <div className="py-1">
                     <button
                       onClick={() => { setDropdownOpen(false); router.push("/settings"); }}
@@ -143,7 +134,6 @@ export default function Header({ onMenuClick }: HeaderProps) {
                       Sign out
                     </button>
                   </div>
-
                 </div>
               </>
             )}
