@@ -4,7 +4,6 @@ import Dashboard from "@/components/Dashboard";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
-import { hasClientAuthSession } from "@/lib/authBypass";
 import UserTable from "@/components/users/UserTable";
 import CreateUserModal from "@/components/users/CreateUserModal";
 import EditUserModal from "@/components/users/EditUserModal";
@@ -106,12 +105,17 @@ export default function UsersPage() {
   } | null>(null);
 
   useEffect(() => {
-    if (!hasClientAuthSession()) {
+    // Check for auth in localStorage directly as per your requirement
+    const storedUserStr = localStorage.getItem("user");
+    const accessToken = localStorage.getItem("accessToken");
+
+    if (!storedUserStr || !accessToken) {
       router.push("/login");
       return;
     }
+    
     try {
-      const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+      const storedUser = JSON.parse(storedUserStr);
       setCurrentUserType(storedUser.user_type === "super_admin" ? "super_admin" : "admin");
     } catch {
       setCurrentUserType("admin");
@@ -120,7 +124,7 @@ export default function UsersPage() {
   }, [router]);
 
   const loadUsers = useCallback(async () => {
-    if (!hasClientAuthSession()) return;
+    if (!isAuthChecked) return;
     setLoading(true);
     try {
       const response = await api.getUsers({
@@ -161,7 +165,7 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [filterStatus, filterUserType, searchTerm]);
+  }, [filterStatus, filterUserType, searchTerm, isAuthChecked]);
 
   useEffect(() => {
     if (isAuthChecked) {
@@ -210,7 +214,7 @@ export default function UsersPage() {
 
   // ─── REAL ACTION HANDLERS (Called after MFA) ─────────────────────────────
 
-  const handleMFAVerified = async (_otp: string) => {
+  const handleMFAVerified = async (otp: string) => {
     if (!pendingAction) return;
     const { type, user, data } = pendingAction;
 
