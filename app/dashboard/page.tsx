@@ -73,13 +73,23 @@ function Change({ pct }: { pct: number | null }) {
   );
 }
 
-function activityLabel(type: string) {
+function activityLabel(type: string, actor: string, detail: string) {
   const map: Record<string, string> = {
-    user_registered:  "New user registered",
-    topup_requested:  "Wallet topup requested",
-    topup_approved:   "Wallet topup approved",
-    topup_rejected:   "Wallet topup rejected",
-    order_placed:     "Order placed",
+    user_registered:          `${detail} registered as a new client`,
+    user_created:             `${actor} created account for ${detail}`,
+    user_updated:             `${actor} updated profile of ${detail}`,
+    user_deleted:             `${actor} deleted account ${detail}`,
+    user_locked:              `${actor} locked account of ${detail}`,
+    user_unlocked:            `${actor} unlocked account of ${detail}`,
+    user_permanently_blocked: `${actor} permanently blocked ${detail}`,
+    topup_requested:          `${detail} requested a wallet topup`,
+    topup_approved:           `${actor} approved topup for ${detail}`,
+    topup_rejected:           `${actor} rejected topup for ${detail}`,
+    order_placed:             `${detail} placed order ${actor}`,
+    viewer_created:           `${actor} created viewer account ${detail}`,
+    wallet_settled:           `${actor} settled wallet for ${detail}`,
+    password_reset:           `${actor} reset password for ${detail}`,
+    product_config_saved:     `${actor} updated product config for ${detail}`,
   };
   return map[type] ?? type.replace(/_/g, " ");
 }
@@ -177,7 +187,7 @@ export default function DashboardPage() {
             Welcome back, {user?.full_name || "Admin"}!
           </h2>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Here's what's happening with your B2B portal today.
+            Here's what's happening with your Admin portal today.
           </p>
         </div>
 
@@ -250,7 +260,7 @@ export default function DashboardPage() {
                       {(a.actor?.[0] ?? "?").toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800 dark:text-white">{activityLabel(a.type)}</p>
+                      <p className="text-sm font-medium text-gray-800 dark:text-white"> {activityLabel(a.type, a.actor, a.detail)}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{a.actor} · {fmtTime(a.timestamp)}</p>
                     </div>
                   </div>

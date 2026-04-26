@@ -47,7 +47,7 @@ export default function CreateUserModal({ onClose, onSuccess, currentUserType }:
         email: formData.email,
         password: formData.password,
         name: formData.name,
-        company: formData.user_type === "b2b_client" ? formData.company : undefined,
+        company: formData.user_type === "b2b_client" ? formData.company : "CardCove",
         user_type: formData.user_type,
       });
       onSuccess();
