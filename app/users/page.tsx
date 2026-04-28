@@ -187,7 +187,9 @@ export default function UsersPage() {
     setShowMFAModal(true);
   };
 
-  const initiateUnlock = (user: User) => {
+  const initiateUnlock = (userId: string) => {
+    const user = users.find(u => u.id === userId);
+    if (!user) return;
     setPendingAction({ type: "unlock", user });
     setShowMFAModal(true);
   };
