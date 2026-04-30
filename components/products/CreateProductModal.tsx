@@ -6,7 +6,9 @@ import { Product } from "@/app/products/page";
 interface CreateProductModalProps {
   onClose: () => void;
   onSubmit: (productData: any) => void;
+  onSuccess?: () => void;
   categories: string[];
+
   brands: string[];
   initialData?: Product; // when set → Edit mode
 }
@@ -16,6 +18,7 @@ type ProductType = "internal" | "supplier";
 export default function CreateProductModal({
   onClose,
   onSubmit,
+  onSuccess,
   categories,
   brands,
   initialData,
@@ -91,6 +94,7 @@ export default function CreateProductModal({
         ...shared,
         discountPrice: discountPrice ? roundPrice(discountPrice) : undefined,
       });
+  onSuccess?.();
     } else {
       onSubmit({
         _type: "supplier",
@@ -103,6 +107,7 @@ export default function CreateProductModal({
         realtimePrice,
         syncEnabled,
       });
+  onSuccess?.();
     }
   };
 

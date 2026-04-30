@@ -6,7 +6,7 @@
 import { Transaction } from "@/app/wallet/page";
 
 interface Props {
-  transactions: Transaction[];
+  transactions: Transaction[]; // transactions are now pre-filtered by the parent component
 }
 
 export default function TransactionHistoryTable({ transactions }: Props) {

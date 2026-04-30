@@ -16,6 +16,8 @@ interface UseOrdersReturn {
   page:         number;
   totalPages:   number;
   total:        number;
+  searchTerm:   string;
+  setSearchTerm:(term: string) => void;
   setPage:      (p: number | ((prev: number) => number)) => void;
   reload:       () => void;
   clearError:   () => void;
@@ -57,6 +59,7 @@ export function useOrders(): UseOrdersReturn {
   const [page,      setPage]      = useState(1);
   const [total,     setTotal]     = useState(0);
   const [totalPages,setTotalPages]= useState(1);
+  const [searchTerm,setSearchTerm]= useState("");
  
   const [completing,      setCompleting]      = useState<string | null>(null);
   const [completeError,   setCompleteError]   = useState<string | null>(null);
@@ -67,7 +70,11 @@ export function useOrders(): UseOrdersReturn {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.getAllOrders({ page, limit: LIMIT });
+      const res = await api.getAllOrders({ 
+        page, 
+        limit: LIMIT,
+        search: searchTerm || undefined 
+      });
       const mapped = (res.data ?? []).map(mapOrder);
       setOrders(mapped);
       setTotal(res.pagination?.total ?? 0);
@@ -77,9 +84,14 @@ export function useOrders(): UseOrdersReturn {
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, [page, searchTerm]);
  
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { 
+    const timer = setTimeout(() => {
+        load(); 
+    }, 500); // debounce search
+    return () => clearTimeout(timer);
+  }, [load]);
  
   // ─── Fetch single order detail ──────────────────────────────────────────────
   const fetchDetail = useCallback(async (id: string): Promise<Order | null> => {
@@ -123,6 +135,8 @@ export function useOrders(): UseOrdersReturn {
     page,
     totalPages,
     total,
+    searchTerm,
+    setSearchTerm,
     setPage,
     reload:              load,
     clearError:          () => setError(null),
