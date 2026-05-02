@@ -4,7 +4,7 @@ import { useState } from "react";
 import { TopupRequest } from "@/app/wallet/page";
 
 interface TopupRequestsTableProps {
-  requests: TopupRequest[];
+  requests: TopupRequest[]; // requests are now pre-filtered by the parent component
   onViewReceipt: (request: TopupRequest) => void;
   onApprove: (request: TopupRequest) => void;
   onReject: (request: TopupRequest, reason: string) => void;

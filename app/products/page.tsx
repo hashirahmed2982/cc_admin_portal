@@ -5,10 +5,11 @@ import { useState, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
 import ProductTable from "@/components/products/ProductTable";
 import CreateProductModal from "@/components/products/CreateProductModal";
+import EditProductModal from "@/components/products/EditProductModal";
 import UploadCodesModal from "@/components/products/UploadCodesModal";
 import ViewCodesModal from "@/components/products/ViewCodesModal";
 import ImportProductsModal from "@/components/products/ImportProductsModal";
-import { useSearch } from "@/app/context/SearchContext";
+import ProductImageGallery from "@/components/products/ProductImageGallery";
 
 export interface Product {
   id: string;
@@ -39,7 +40,7 @@ export interface Product {
 }
 
 export default function ProductsPage() {
-  const { searchTerm } = useSearch(); // Use global search
+  const [searchTerm, setSearchTerm] = useState("");
   const [products, setProducts]     = useState<Product[]>([]);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState<string | null>(null);
@@ -47,14 +48,17 @@ export default function ProductsPage() {
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterSource, setFilterSource]     = useState<"all" | "internal" | "carrypin">("all");
   const [categories, setCategories] = useState<string[]>([]);
+  const [brands, setBrands]         = useState<string[]>([]);
   const [page, setPage]             = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const LIMIT = 20;
 
-  const [showCreateModal, setShowCreateModal]   = useState(false);
-  const [showImportModal, setShowImportModal]   = useState(false);
-  const [uploadingProduct, setUploadingProduct] = useState<Product | null>(null);
+  const [showCreateModal, setShowCreateModal]         = useState(false);
+  const [showImportModal, setShowImportModal]         = useState(false);
+  const [uploadingProduct, setUploadingProduct]       = useState<Product | null>(null);
   const [viewingCodesProduct, setViewingCodesProduct] = useState<Product | null>(null);
+  const [editingProduct, setEditingProduct]           = useState<Product | null>(null);
+  const [viewingImagesProduct, setViewingImagesProduct] = useState<Product | null>(null);
 
   const loadProducts = useCallback(async () => {
     try {
@@ -78,6 +82,25 @@ export default function ProductsPage() {
     }
   }, [page, searchTerm, filterCategory, filterStatus, filterSource]);
 
+  const handleToggleStatus = useCallback(async (productId: string) => {
+    try {
+      await api.toggleProductStatus(productId);
+      loadProducts();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to toggle status");
+    }
+  }, [loadProducts]);
+
+  const handleDelete = useCallback(async (productId: string) => {
+    if (!confirm("Are you sure you want to delete this product?")) return;
+    try {
+      await api.deleteProduct(productId);
+      loadProducts();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to delete product");
+    }
+  }, [loadProducts]);
+
   useEffect(() => {
     loadProducts();
   }, [loadProducts]);
@@ -87,6 +110,7 @@ export default function ProductsPage() {
       try {
         const result = await api.getProductMeta();
         setCategories(result.data?.categories || []);
+        setBrands(result.data?.brands || []);
       } catch { /* non-critical */ }
     };
     loadMeta();
@@ -103,16 +127,31 @@ export default function ProductsPage() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm flex flex-wrap gap-4">
-          <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white">
-            <option value="all">All Categories</option>
-            {categories.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white">
-            <option value="all">All Statuses</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm flex flex-col md:flex-row gap-4 justify-between">
+          <div className="flex gap-4">
+            <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white">
+              <option value="all">All Categories</option>
+              {categories.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white">
+              <option value="all">All Statuses</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+
+          <div className="relative w-full md:w-80">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="search"
+              placeholder="Search products..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 pr-4 py-2 w-full text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
         </div>
 
         {error && <div className="p-4 bg-red-50 text-red-600 rounded-lg">{error}</div>}
@@ -121,24 +160,60 @@ export default function ProductsPage() {
           <div className="flex justify-center p-12"><div className="animate-spin w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full"></div></div>
         ) : (
           <ProductTable
-              products={products}
-              onUploadCodes={setUploadingProduct}
-              onViewCodes={setViewingCodesProduct} viewMode={"table"} onEdit={function (product: Product): void {
-            throw new Error("Function not implemented.");
-          }} onToggleStatus={function (productId: string): void {
-            throw new Error("Function not implemented.");
-          }} onViewImages={function (product: Product): void {
-            throw new Error("Function not implemented.");
-          }} onDelete={function (productId: string): void {
-            throw new Error("Function not implemented.");
-          }}          />
+            products={products}
+            viewMode="table"
+            onEdit={setEditingProduct}
+            onToggleStatus={handleToggleStatus}
+            onUploadCodes={setUploadingProduct}
+            onViewCodes={setViewingCodesProduct}
+            onViewImages={setViewingImagesProduct}
+            onDelete={handleDelete}
+          />
         )}
       </div>
 
       {showImportModal && <ImportProductsModal onClose={() => setShowImportModal(false)} onComplete={() => { setShowImportModal(false); loadProducts(); }} />}
-      {showCreateModal && <CreateProductModal onClose={() => setShowCreateModal(false)} onSuccess={() => { setShowCreateModal(false); loadProducts(); }} />}
+      {showCreateModal && (
+        <CreateProductModal
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={() => { setShowCreateModal(false); loadProducts(); }}
+          categories={categories}
+          brands={brands}
+          onSubmit={async (data) => {
+            try {
+              if (data._type === "internal") {
+                await api.createInternalProduct(data);
+              } else {
+                await api.createSupplierProduct(data);
+              }
+            } catch (err: any) {
+              alert(err.message || "Failed to save product");
+              throw err;
+            }
+          }}
+        />
+      )}
       {uploadingProduct && <UploadCodesModal product={uploadingProduct} onClose={() => setUploadingProduct(null)} onSubmit={() => { setUploadingProduct(null); loadProducts(); }} />}
       {viewingCodesProduct && <ViewCodesModal product={viewingCodesProduct} onClose={() => setViewingCodesProduct(null)} />}
+      {editingProduct && (
+        <EditProductModal
+          product={editingProduct}
+          onClose={() => setEditingProduct(null)}
+          categories={categories}
+          brands={brands}
+          onSubmit={async (data) => {
+            try {
+              await api.updateProduct(editingProduct.id, data);
+              setEditingProduct(null);
+              loadProducts();
+            } catch (err: any) {
+              alert(err.message || "Failed to update product");
+              throw err;
+            }
+          }}
+        />
+      )}
+      {viewingImagesProduct && <ProductImageGallery product={viewingImagesProduct} onClose={() => setViewingImagesProduct(null)} />}
     </Dashboard>
   );
 }

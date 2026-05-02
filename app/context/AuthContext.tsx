@@ -9,6 +9,7 @@ export interface AuthUser {
   role_name?: string;
   company_name?: string;
   status?: string;
+  user_type?: "super_admin" | "admin" | "b2b_client" | "viewer"; // Added user_type
 }
 
 interface AuthContextType {

@@ -372,12 +372,13 @@ class ApiService {
 
   // ─── ORDERS ──────────────────────────────────────────────────────────────
 
-  async getAllOrders(params?: { status?: string; userId?: number; page?: number; limit?: number }) {
+  async getAllOrders(params?: { status?: string; userId?: number; page?: number; limit?: number; search?: string }) {
     const p = new URLSearchParams();
     if (params?.status) p.set('status', params.status);
     if (params?.userId) p.set('userId', String(params.userId));
     if (params?.page)   p.set('page',   String(params.page));
     if (params?.limit)  p.set('limit',  String(params.limit));
+    if (params?.search) p.set('search', params.search); // Added search parameter
     return this.request(`/orders/admin/all${p.toString() ? '?' + p : ''}`);
   }
  

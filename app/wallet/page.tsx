@@ -142,6 +142,7 @@ export default function WalletManagementPage() {
     request: TopupRequest;
     reason?: string;
   } | null>(null);
+  const [searchTerm, setSearchTerm] = useState(""); // Local search term
 
   const loadRequests = useCallback(async () => {
     const res = await api.getTopupRequests();
@@ -211,6 +212,29 @@ export default function WalletManagementPage() {
     pendingAmount: topupRequests.filter((r) => r.status === "pending").reduce((sum, r) => sum + r.amount, 0),
   };
 
+  // Filtered data based on search term
+  const filteredTopupRequests = topupRequests.filter(request =>
+    request.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    request.userEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    request.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    request.id.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredWalletBalances = walletBalances.filter(balance =>
+    balance.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    balance.userEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    balance.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    balance.id.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredTransactions = transactions.filter(transaction =>
+    transaction.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    transaction.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    transaction.id.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+
   return (
     <Dashboard>
       <div className="space-y-6">
@@ -237,6 +261,20 @@ export default function WalletManagementPage() {
           </div>
         </div>
 
+        {/* Search Input for the page */}
+        <div className="relative">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="search"
+            placeholder={`Search ${activeTab === "requests" ? "topup requests" : activeTab === "balances" ? "wallet balances" : "transactions"}...`}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9 pr-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
+          />
+        </div>
+
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
           <div className="border-b border-gray-200 dark:border-gray-700">
             <nav className="flex">
@@ -259,9 +297,9 @@ export default function WalletManagementPage() {
               <div className="animate-pulse space-y-4"><div className="h-10 bg-gray-100 dark:bg-gray-700 rounded w-full"></div><div className="h-10 bg-gray-100 dark:bg-gray-700 rounded w-full"></div></div>
             ) : (
               <>
-                {activeTab === "requests" && <TopupRequestsTable requests={topupRequests} onViewReceipt={(r) => { setSelectedReceipt(r); setShowReceiptModal(true); }} onApprove={initiateApproval} onReject={initiateRejection} />}
-                {activeTab === "balances" && <WalletBalancesTable balances={walletBalances} />}
-                {activeTab === "history" && <TransactionHistoryTable transactions={transactions} />}
+                {activeTab === "requests" && <TopupRequestsTable requests={filteredTopupRequests} onViewReceipt={(r) => { setSelectedReceipt(r); setShowReceiptModal(true); }} onApprove={initiateApproval} onReject={initiateRejection} />}
+                {activeTab === "balances" && <WalletBalancesTable balances={filteredWalletBalances} />}
+                {activeTab === "history" && <TransactionHistoryTable transactions={filteredTransactions} />}
               </>
             )}
           </div>

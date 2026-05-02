@@ -6,7 +6,7 @@ interface UserTableProps {
   currentUserType: "super_admin" | "admin";
   onEdit: (user: User) => void;
   onLock: (user: User) => void;
-  onUnlock: (userId: string) => void;
+  onUnlock: (user: User) => void;
   onResetPassword: (user: User) => void;
   onAssignRole: (user: User) => void;
   onManageViewers: (user: User) => void;
@@ -121,7 +121,7 @@ export default function UserTable({
                               </svg>
                             </button>
                           ) : user.status !== "permanently_blocked" ? (
-                            <button onClick={() => onUnlock(user.id)} className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300" title="Unlock User">
+                            <button onClick={() => onUnlock(user)} className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300" title="Unlock User">
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 018 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
                               </svg>
