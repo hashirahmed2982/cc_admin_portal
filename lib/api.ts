@@ -3,6 +3,15 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 const API_VERSION = 'v1';
 
+type ValidationError = {
+  field?: string;
+  message?: string;
+};
+
+type ApiError = Error & {
+  validationErrors?: ValidationError[];
+};
+
 class ApiService {
   private baseURL: string;
 
@@ -35,13 +44,20 @@ class ApiService {
     const data = await response.json();
     if (!response.ok) {
       if (response.status === 401 && data.message?.includes('expired')) {
-          localStorage.clear();
-          window.location.href = '/login';
+        localStorage.clear();
+        window.location.href = '/login';
       }
-      
-      const error = new Error(data.message || 'API request failed');
+      if (
+        response.status === 403 &&
+        data.message === 'You must change your password before accessing this resource.'
+      ) {
+        localStorage.setItem('mustChangePassword', 'true');
+        window.location.href = '/change-password';
+      }
+
+      const error: ApiError = new Error(data.message || 'API request failed');
       if (data.errors) {
-        (error as any).validationErrors = data.errors;
+        error.validationErrors = data.errors as ValidationError[];
         console.error('Validation Errors:', data.errors);
       }
       throw error;
@@ -65,6 +81,10 @@ class ApiService {
 
   async login(email: string, password: string, mfaCode?: string) {
     return this.request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password, mfaCode }) }, false);
+  }
+
+  async changePassword(currentPassword: string, newPassword: string) {
+    return this.request('/auth/change-password', { method: 'POST', body: JSON.stringify({ currentPassword, newPassword }) });
   }
 
   async getAdminDashboard() {
@@ -311,7 +331,7 @@ class ApiService {
     return this.request('/products/supplier', { method: 'POST', body: JSON.stringify(d) });
   }
  
-  async updateProduct(id: string | number, d: Record<string, any>) {
+  async updateProduct(id: string | number, d: Record<string, unknown>) {
     return this.request(`/products/${id}`, { method: 'PUT', body: JSON.stringify(d) });
   }
  
@@ -355,7 +375,7 @@ class ApiService {
     return this.handleResponse(res);
   }
  
-  async importBulkProducts(rows: any[]) {
+  async importBulkProducts(rows: unknown[]) {
     return this.request('/products/import-bulk', { method: 'POST', body: JSON.stringify({ rows }) });
   }
  
