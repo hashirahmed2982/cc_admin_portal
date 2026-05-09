@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
 
 export default function LoginPage() {
-  const { setUser } = useAuth();
+  const { setUser, setMustChangePassword } = useAuth();
   const router = useRouter();
   const [formData, setFormData] = useState({
     email: "",
@@ -50,10 +50,11 @@ export default function LoginPage() {
       localStorage.setItem("accessToken", data.data.accessToken);
       localStorage.setItem("refreshToken", data.data.refreshToken);
       localStorage.setItem("user", JSON.stringify(data.data.user));
-      // Save user to context
       setUser(data.data.user);
 
-      router.push("/dashboard");
+      const mustChange = !!data.data.mustChangePassword;
+      setMustChangePassword(mustChange);
+      router.push(mustChange ? "/change-password" : "/dashboard");
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "An error occurred during login";
       setError(errorMessage);
