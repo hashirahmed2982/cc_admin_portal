@@ -72,47 +72,48 @@ interface ApiUser {
   settlement_notes?: string;
 }
 
-type UserActionType = "lock" | "unlock" | "reset_password" | "permanent_block" | "settle_wallet" | "edit";
+type UserActionType =
+  | "lock"
+  | "unlock"
+  | "reset_password"
+  | "permanent_block"
+  | "settle_wallet"
+  | "edit";
 
 export default function UsersPage() {
   const router = useRouter();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [filterUserType, setFilterUserType] = useState<string>("all");
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [searchTerm,      setSearchTerm]      = useState("");
+  const [users,           setUsers]           = useState<User[]>([]);
+  const [loading,         setLoading]         = useState(true);
+  const [filterStatus,    setFilterStatus]    = useState<string>("all");
+  const [filterUserType,  setFilterUserType]  = useState<string>("all");
+  const [selectedUser,    setSelectedUser]    = useState<User | null>(null);
   const [currentUserType, setCurrentUserType] = useState<"super_admin" | "admin">("admin");
-  const [isAuthChecked, setIsAuthChecked] = useState(false);
+  const [isAuthChecked,   setIsAuthChecked]   = useState(false);
 
-  // Modal states
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showLockModal, setShowLockModal] = useState(false);
+  // ─── Modal states ─────────────────────────────────────────────────────────
+  const [showCreateModal,        setShowCreateModal]        = useState(false);
+  const [showEditModal,          setShowEditModal]          = useState(false);
+  const [showLockModal,          setShowLockModal]          = useState(false);
   const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
-  const [showAssignRoleModal, setShowAssignRoleModal] = useState(false);
-  const [showViewerAccountsModal, setShowViewerAccountsModal] = useState(false);
-  const [showPermanentBlockModal, setShowPermanentBlockModal] = useState(false);
-  const [showSettleWalletModal, setShowSettleWalletModal] = useState(false);
-  
-  // MFA state
-  const [showMFAModal, setShowMFAModal] = useState(false);
-  const [pendingAction, setPendingAction] = useState<{
+  const [showAssignRoleModal,    setShowAssignRoleModal]    = useState(false);
+  const [showViewerAccountsModal,setShowViewerAccountsModal]= useState(false);
+  const [showPermanentBlockModal,setShowPermanentBlockModal]= useState(false);
+  const [showSettleWalletModal,  setShowSettleWalletModal]  = useState(false);
+
+  // ─── MFA state ────────────────────────────────────────────────────────────
+  const [showMFAModal,   setShowMFAModal]   = useState(false);
+  const [pendingAction,  setPendingAction]  = useState<{
     type: UserActionType;
     user: User;
     data?: any;
   } | null>(null);
 
+  // ─── Auth check ───────────────────────────────────────────────────────────
   useEffect(() => {
-    // Check for auth in localStorage directly as per your requirement
     const storedUserStr = localStorage.getItem("user");
-    const accessToken = localStorage.getItem("accessToken");
-
-    if (!storedUserStr || !accessToken) {
-      router.push("/login");
-      return;
-    }
-    
+    const accessToken   = localStorage.getItem("accessToken");
+    if (!storedUserStr || !accessToken) { router.push("/login"); return; }
     try {
       const storedUser = JSON.parse(storedUserStr);
       setCurrentUserType(storedUser.user_type === "super_admin" ? "super_admin" : "admin");
@@ -122,6 +123,7 @@ export default function UsersPage() {
     setIsAuthChecked(true);
   }, [router]);
 
+  // ─── Load users ───────────────────────────────────────────────────────────
   const loadUsers = useCallback(async () => {
     if (!isAuthChecked) return;
     setLoading(true);
@@ -129,37 +131,37 @@ export default function UsersPage() {
       const response = await api.getUsers({
         page: 1,
         limit: 100,
-        status: filterStatus !== "all" ? filterStatus : undefined,
+        status:    filterStatus   !== "all" ? filterStatus   : undefined,
         user_type: filterUserType !== "all" ? filterUserType : undefined,
-        search: searchTerm || undefined,
+        search:    searchTerm || undefined,
       });
 
-      const transformedUsers: User[] = response.data.map((apiUser: ApiUser) => ({
-        id: String(apiUser.user_id),
-        name: apiUser.full_name,
-        email: apiUser.email,
-        company: apiUser.company_name || "N/A",
-        role: apiUser.user_type,
-        user_type: apiUser.user_type,
-        status: apiUser.status,
-        walletId: apiUser.wallet_id ? `WALLET-${String(apiUser.user_id).padStart(3, "0")}` : "—",
-        walletBalance: apiUser.wallet_balance || 0,
-        createdAt: apiUser.created_at?.split("T")[0] || "N/A",
-        lastLogin: apiUser.last_login?.split("T")[0] || "Never",
-        lockedReason: apiUser.locked_reason,
-        restrictedProducts: apiUser.restricted_products || [],
-        viewerAccounts: apiUser.viewer_accounts || [],
-        permanentBlockReason: apiUser.permanent_block_reason,
-        permanentBlockDate: apiUser.permanent_block_date,
-        walletSettled: apiUser.wallet_settled,
-        settlementMethod: apiUser.settlement_method,
-        settlementReference: apiUser.settlement_reference,
-        settlementDate: apiUser.settlement_date,
-        settlementNotes: apiUser.settlement_notes,
+      const transformedUsers: User[] = response.data.map((u: ApiUser) => ({
+        id:                   String(u.user_id),
+        name:                 u.full_name,
+        email:                u.email,
+        company:              u.company_name || "N/A",
+        role:                 u.user_type,
+        user_type:            u.user_type,
+        status:               u.status,
+        walletId:             u.wallet_id ? `WALLET-${String(u.user_id).padStart(3, "0")}` : "—",
+        walletBalance:        u.wallet_balance || 0,
+        createdAt:            u.created_at?.split("T")[0] || "N/A",
+        lastLogin:            u.last_login?.split("T")[0] || "Never",
+        lockedReason:         u.locked_reason,
+        restrictedProducts:   u.restricted_products || [],
+        viewerAccounts:       u.viewer_accounts || [],
+        permanentBlockReason: u.permanent_block_reason,
+        permanentBlockDate:   u.permanent_block_date,
+        walletSettled:        u.wallet_settled,
+        settlementMethod:     u.settlement_method,
+        settlementReference:  u.settlement_reference,
+        settlementDate:       u.settlement_date,
+        settlementNotes:      u.settlement_notes,
       }));
 
       setUsers(transformedUsers);
-    } catch (error: unknown) {
+    } catch (error) {
       console.error("Error loading users:", error);
     } finally {
       setLoading(false);
@@ -167,12 +169,10 @@ export default function UsersPage() {
   }, [filterStatus, filterUserType, searchTerm, isAuthChecked]);
 
   useEffect(() => {
-    if (isAuthChecked) {
-      loadUsers();
-    }
+    if (isAuthChecked) loadUsers();
   }, [isAuthChecked, loadUsers]);
 
-  // ─── ACTION INITIATORS (Sensitive Actions) ────────────────────────────────
+  // ─── Action initiators (open MFA modal) ──────────────────────────────────
 
   const initiateEdit = (userData: any) => {
     if (!selectedUser) return;
@@ -186,16 +186,20 @@ export default function UsersPage() {
     setShowMFAModal(true);
   };
 
-  const initiateUnlock = (userId: string) => {
-    const user = users.find(u => u.id === userId);
+  const initiateUnlock = (user: User) => {
     if (!user) return;
     setPendingAction({ type: "unlock", user });
     setShowMFAModal(true);
   };
 
-  const initiateResetPassword = () => {
+  // Password reset goes through MFA like all other sensitive actions
+  const initiateResetPassword = (password: string, sendEmail: boolean) => {
     if (!selectedUser) return;
-    setPendingAction({ type: "reset_password", user: selectedUser });
+    setPendingAction({
+      type: "reset_password",
+      user: selectedUser,
+      data: { password, sendEmail },
+    });
     setShowMFAModal(true);
   };
 
@@ -213,38 +217,48 @@ export default function UsersPage() {
     setShowMFAModal(true);
   };
 
-  // ─── REAL ACTION HANDLERS (Called after MFA) ─────────────────────────────
+  // ─── MFA verified — execute the action ───────────────────────────────────
 
-  const handleMFAVerified = async (otp: string) => {
+  const handleMFAVerified = async (_otp: string) => {
     if (!pendingAction) return;
     const { type, user, data } = pendingAction;
 
     try {
       switch (type) {
-        case "edit":
+        case "edit": {
           await api.updateUser(Number(user.id), data);
           setShowEditModal(false);
           break;
-        case "lock":
+        }
+        case "lock": {
           await api.lockUser(Number(user.id), data);
           setShowLockModal(false);
           break;
-        case "unlock":
+        }
+        case "unlock": {
           await api.unlockUser(Number(user.id));
           break;
-        case "reset_password":
-          const res = await api.resetUserPassword(Number(user.id));
+        }
+        case "reset_password": {
+          await api.resetUserPassword(Number(user.id), data.password, data.sendEmail);
           setShowResetPasswordModal(false);
-          if (res.data?.temporaryPassword) alert(`Temp Password: ${res.data.temporaryPassword}`);
           break;
-        case "permanent_block":
-          await api.permanentlyBlockUser(Number(user.id), data.reason, data.walletSettled, data.settlementDetails);
+        }
+        case "permanent_block": {
+          await api.permanentlyBlockUser(
+            Number(user.id),
+            data.reason,
+            data.walletSettled,
+            data.settlementDetails
+          );
           setShowPermanentBlockModal(false);
           break;
-        case "settle_wallet":
+        }
+        case "settle_wallet": {
           await api.settleUserWallet(Number(user.id), data);
           setShowSettleWalletModal(false);
           break;
+        }
       }
       loadUsers();
     } catch (error: any) {
@@ -256,39 +270,53 @@ export default function UsersPage() {
     }
   };
 
+  // ─── Filtered users (client-side) ────────────────────────────────────────
+
   const filteredUsers = users.filter((user) => {
+    const q = searchTerm.toLowerCase();
     const matchesSearch =
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.company.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === "all" || user.status === filterStatus;
-    const matchesType = filterUserType === "all" || user.user_type === filterUserType;
+      user.name.toLowerCase().includes(q) ||
+      user.email.toLowerCase().includes(q) ||
+      user.company.toLowerCase().includes(q);
+    const matchesStatus = filterStatus   === "all" || user.status    === filterStatus;
+    const matchesType   = filterUserType === "all" || user.user_type === filterUserType;
     return matchesSearch && matchesStatus && matchesType;
   });
+
+  // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
     <Dashboard>
       <div className="space-y-6">
+
+        {/* Header */}
         <div className="flex items-center justify-between">
           <h2 className="text-3xl font-bold text-gray-800 dark:text-white">User Management</h2>
-          <button onClick={() => setShowCreateModal(true)} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Create New User</button>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Create New User
+          </button>
         </div>
 
+        {/* Filters */}
         <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm flex flex-col md:flex-row gap-4 justify-between">
           <div className="flex gap-4">
-            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white">
+            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
+              className="px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white">
               <option value="all">All Statuses</option>
               <option value="active">Active</option>
               <option value="locked">Locked</option>
               <option value="permanently_blocked">Permanently Blocked</option>
             </select>
-            <select value={filterUserType} onChange={(e) => setFilterUserType(e.target.value)} className="px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white">
+            <select value={filterUserType} onChange={(e) => setFilterUserType(e.target.value)}
+              className="px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white">
               <option value="all">All Types</option>
               {currentUserType === "super_admin" && <option value="admin">Admin</option>}
               <option value="b2b_client">B2B Client</option>
             </select>
           </div>
-          
           <div className="relative w-full md:w-80">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -303,39 +331,91 @@ export default function UsersPage() {
           </div>
         </div>
 
+        {/* Table */}
         {loading ? (
-          <div className="flex justify-center p-12"><div className="animate-spin w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full"></div></div>
+          <div className="flex justify-center p-12">
+            <div className="animate-spin w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full" />
+          </div>
         ) : (
           <UserTable
             users={filteredUsers}
             currentUserType={currentUserType}
-            onEdit={(u) => { setSelectedUser(u); setShowEditModal(true); }}
-            onLock={(u) => { setSelectedUser(u); setShowLockModal(true); }}
+            onEdit={(u)           => { setSelectedUser(u); setShowEditModal(true); }}
+            onLock={(u)           => { setSelectedUser(u); setShowLockModal(true); }}
             onUnlock={initiateUnlock}
-            onResetPassword={(u) => { setSelectedUser(u); setShowResetPasswordModal(true); }}
-            onAssignRole={(u) => { setSelectedUser(u); setShowAssignRoleModal(true); }}
-            onManageViewers={(u) => { setSelectedUser(u); setShowViewerAccountsModal(true); }}
+            onResetPassword={(u)  => { setSelectedUser(u); setShowResetPasswordModal(true); }}
+            onAssignRole={(u)     => { setSelectedUser(u); setShowAssignRoleModal(true); }}
+            onManageViewers={(u)  => { setSelectedUser(u); setShowViewerAccountsModal(true); }}
             onPermanentBlock={(u) => { setSelectedUser(u); setShowPermanentBlockModal(true); }}
-            onSettleWallet={(u) => { setSelectedUser(u); setShowSettleWalletModal(true); }}
+            onSettleWallet={(u)   => { setSelectedUser(u); setShowSettleWalletModal(true); }}
           />
         )}
       </div>
 
-      {showCreateModal && <CreateUserModal onClose={() => setShowCreateModal(false)} onSuccess={loadUsers} currentUserType={currentUserType} />}
-      
-      {showEditModal && selectedUser && <EditUserModal user={selectedUser} onClose={() => { setShowEditModal(false); setSelectedUser(null); }} onSubmit={initiateEdit} />}
-      
-      {showLockModal && selectedUser && <LockUserModal user={selectedUser} onClose={() => { setShowLockModal(false); setSelectedUser(null); }} onSubmit={initiateLock} />}
-      
-      {showResetPasswordModal && selectedUser && <ResetPasswordModal user={selectedUser} onClose={() => { setShowResetPasswordModal(false); setSelectedUser(null); }} onSubmit={initiateResetPassword} />}
-      
-      {showAssignRoleModal && selectedUser && <AssignRoleModal user={selectedUser} onClose={() => { setShowAssignRoleModal(false); setSelectedUser(null); }} onSubmit={() => {}} />}
-      
-      {showViewerAccountsModal && selectedUser && <ViewerAccountsModal user={selectedUser} onClose={() => { setShowViewerAccountsModal(false); setSelectedUser(null); }} />}
-      
-      {showPermanentBlockModal && selectedUser && <PermanentBlockModal user={selectedUser} onClose={() => { setShowPermanentBlockModal(false); setSelectedUser(null); }} onConfirm={initiatePermanentBlock} />}
-      
-      {showSettleWalletModal && selectedUser && <SettleWalletModal user={selectedUser} onClose={() => { setShowSettleWalletModal(false); setSelectedUser(null); }} onConfirm={initiateSettleWallet} />}
+      {/* ── Modals ──────────────────────────────────────────────────────────── */}
+
+      {showCreateModal && (
+        <CreateUserModal
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={loadUsers}
+          currentUserType={currentUserType}
+        />
+      )}
+
+      {showEditModal && selectedUser && (
+        <EditUserModal
+          user={selectedUser}
+          onClose={() => { setShowEditModal(false); setSelectedUser(null); }}
+          onSubmit={initiateEdit}
+        />
+      )}
+
+      {showLockModal && selectedUser && (
+        <LockUserModal
+          user={selectedUser}
+          onClose={() => { setShowLockModal(false); setSelectedUser(null); }}
+          onSubmit={initiateLock}
+        />
+      )}
+
+      {showResetPasswordModal && selectedUser && (
+        <ResetPasswordModal
+          user={selectedUser}
+          onClose={() => { setShowResetPasswordModal(false); setSelectedUser(null); }}
+          onSubmit={initiateResetPassword}
+        />
+      )}
+
+      {showAssignRoleModal && selectedUser && (
+        <AssignRoleModal
+          user={selectedUser}
+          onClose={() => { setShowAssignRoleModal(false); setSelectedUser(null); }}
+          onSubmit={() => {}}
+        />
+      )}
+
+      {showViewerAccountsModal && selectedUser && (
+        <ViewerAccountsModal
+          user={selectedUser}
+          onClose={() => { setShowViewerAccountsModal(false); setSelectedUser(null); }}
+        />
+      )}
+
+      {showPermanentBlockModal && selectedUser && (
+        <PermanentBlockModal
+          user={selectedUser}
+          onClose={() => { setShowPermanentBlockModal(false); setSelectedUser(null); }}
+          onConfirm={initiatePermanentBlock}
+        />
+      )}
+
+      {showSettleWalletModal && selectedUser && (
+        <SettleWalletModal
+          user={selectedUser}
+          onClose={() => { setShowSettleWalletModal(false); setSelectedUser(null); }}
+          onConfirm={initiateSettleWallet}
+        />
+      )}
 
       {showMFAModal && pendingAction && (
         <GenericOTPModal
@@ -346,7 +426,9 @@ export default function UsersPage() {
           details={
             <div className="space-y-1">
               <p className="text-xs font-bold text-gray-500 uppercase">Action</p>
-              <p className="text-sm font-bold text-blue-600 capitalize">{pendingAction.type.replace("_", " ")}</p>
+              <p className="text-sm font-bold text-blue-600 capitalize">
+                {pendingAction.type.replace(/_/g, " ")}
+              </p>
               <div className="pt-2">
                 <p className="text-xs font-bold text-gray-500 uppercase">Target User</p>
                 <p className="text-sm text-gray-900 dark:text-white">{pendingAction.user.email}</p>

@@ -41,23 +41,24 @@ export interface Product {
 
 export default function ProductsPage() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [products, setProducts]     = useState<Product[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState<string | null>(null);
-  const [filterStatus, setFilterStatus]     = useState("all");
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = useState("all");
   const [filterCategory, setFilterCategory] = useState("all");
-  const [filterSource, setFilterSource]     = useState<"all" | "internal" | "carrypin">("all");
+  const [filterSource, setFilterSource] = useState<"all" | "internal" | "carrypin">("all");
   const [categories, setCategories] = useState<string[]>([]);
-  const [brands, setBrands]         = useState<string[]>([]);
-  const [page, setPage]             = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [brands, setBrands] = useState<string[]>([]);
+  const [page, setPage] = useState(1);
+   const [totalPages,     setTotalPages]     = useState(1);
+  const [total,          setTotal]          = useState(0);
   const LIMIT = 20;
 
-  const [showCreateModal, setShowCreateModal]         = useState(false);
-  const [showImportModal, setShowImportModal]         = useState(false);
-  const [uploadingProduct, setUploadingProduct]       = useState<Product | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [uploadingProduct, setUploadingProduct] = useState<Product | null>(null);
   const [viewingCodesProduct, setViewingCodesProduct] = useState<Product | null>(null);
-  const [editingProduct, setEditingProduct]           = useState<Product | null>(null);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [viewingImagesProduct, setViewingImagesProduct] = useState<Product | null>(null);
 
   const loadProducts = useCallback(async () => {
@@ -67,12 +68,13 @@ export default function ProductsPage() {
       const result = await api.getProducts({
         page,
         limit: LIMIT,
-        search:   searchTerm || undefined,
+        search: searchTerm || undefined,
         category: filterCategory !== "all" ? filterCategory : undefined,
-        status:   filterStatus  !== "all" ? filterStatus   : undefined,
-        source:   filterSource  !== "all" ? filterSource as "internal" | "carrypin" : undefined,
+        status: filterStatus !== "all" ? filterStatus : undefined,
+        source: filterSource !== "all" ? filterSource as "internal" | "carrypin" : undefined,
       });
       setProducts(result.data || []);
+      setTotal(result.pagination?.total      || 0);
       setTotalPages(result.pagination?.totalPages || 1);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to load products";
@@ -81,7 +83,7 @@ export default function ProductsPage() {
       setLoading(false);
     }
   }, [page, searchTerm, filterCategory, filterStatus, filterSource]);
-
+  
   const handleToggleStatus = useCallback(async (productId: string) => {
     try {
       await api.toggleProductStatus(productId);
@@ -116,6 +118,15 @@ export default function ProductsPage() {
     loadMeta();
   }, []);
 
+  const stats = {
+    total,
+    active:     products.filter(p => p.status === "active").length,
+    internal:   products.filter(p => !p.isSupplierProduct).length,
+    supplier:   products.filter(p => p.isSupplierProduct).length,
+    totalCodes: products
+      .filter(p => !p.isSupplierProduct)
+      .reduce((s, p) => s + (p.availableCodes ?? 0), 0),
+  };
   return (
     <Dashboard>
       <div className="space-y-6">
@@ -124,6 +135,68 @@ export default function ProductsPage() {
           <div className="flex gap-3">
             <button onClick={() => setShowImportModal(true)} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">Import Excel</button>
             <button onClick={() => setShowCreateModal(true)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">Create Product</button>
+          </div>
+        </div>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Total Products</p>
+                <p className="text-2xl font-bold text-gray-800 dark:text-white mt-1">{total}</p>
+              </div>
+              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
+                <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Active Products</p>
+                <p className="text-2xl font-bold text-gray-800 dark:text-white mt-1">{stats.active}</p>
+              </div>
+              <div className="w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center">
+                <svg className="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Internal Inventory</p>
+                <p className="text-2xl font-bold text-gray-800 dark:text-white mt-1">
+                  {stats.totalCodes.toLocaleString()}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">codes available</p>
+              </div>
+              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/20 rounded-full flex items-center justify-center">
+                <svg className="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Supplier Products</p>
+                <p className="text-2xl font-bold text-gray-800 dark:text-white mt-1">{stats.supplier}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">real-time fulfilment</p>
+              </div>
+              <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/20 rounded-full flex items-center justify-center">
+                <svg className="w-6 h-6 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+            </div>
           </div>
         </div>
 

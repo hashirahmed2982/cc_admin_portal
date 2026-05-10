@@ -53,7 +53,14 @@ export default function CreateUserModal({ onClose, onSuccess, currentUserType }:
       onSuccess();
       onClose();
     } catch (err: any) {
-      setErrors({ submit: err.message || "Failed to create user" });
+      const msg = (err.message || "Failed to create user").toLowerCase();
+      if (msg.includes("email") && (msg.includes("exist") || msg.includes("already") || msg.includes("taken"))) {
+        setErrors({ email: "This email is already registered" });
+      } else if (msg.includes("email")) {
+        setErrors({ email: err.message });
+      } else {
+        setErrors({ submit: err.message || "Failed to create user" });
+      }
     } finally {
       setLoading(false);
     }

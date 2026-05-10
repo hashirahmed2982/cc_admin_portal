@@ -8,34 +8,12 @@ import type { Order, OrderStats } from "@/types/order.types";
 
 const LIMIT = 20;
 
-interface UseOrdersReturn {
-  orders:       Order[];
-  stats:        OrderStats;
-  loading:      boolean;
-  error:        string | null;
-  page:         number;
-  totalPages:   number;
-  total:        number;
-  searchTerm:   string;
-  setSearchTerm:(term: string) => void;
-  setPage:      (p: number | ((prev: number) => number)) => void;
-  reload:       () => void;
-  clearError:   () => void;
-  fetchDetail:  (id: string) => Promise<Order | null>;
-  completeOrder:      (id: string) => Promise<void>;
-  completing:         string | null;
-  completeError:      string | null;
-  completeResult:     CompleteResult | null;
-  clearCompleteError: () => void;
-  clearCompleteResult:() => void;
-}
- 
 export interface FulfilledItem {
   productName: string;
   quantity:    number;
   delivered:   number;
 }
- 
+
 export interface PendingItem {
   productName: string;
   quantity:    number;
@@ -43,7 +21,7 @@ export interface PendingItem {
   pending:     number;
   reason:      string;
 }
- 
+
 export interface CompleteResult {
   orderNumber:    string;
   orderStatus:    string;
@@ -52,56 +30,101 @@ export interface CompleteResult {
   pendingItems:   PendingItem[];
 }
 
+interface UseOrdersReturn {
+  orders:       Order[];
+  stats:        OrderStats;
+  loading:      boolean;
+  error:        string | null;
+  page:         number;
+  totalPages:   number;
+  total:        number;
+  today:        string;
+  dateFrom:     string;
+  dateTo:       string;
+  searchTerm:   string;
+  setPage:      (p: number | ((prev: number) => number)) => void;
+  setDateFrom:  (d: string) => void;
+  setDateTo:    (d: string) => void;
+  setSearchTerm:(s: string) => void;
+  resetFilters: () => void;
+  reload:       () => void;
+  clearError:   () => void;
+  fetchDetail:  (id: string) => Promise<Order | null>;
+  completeOrder:       (id: string) => Promise<void>;
+  completing:          string | null;
+  completeError:       string | null;
+  completeResult:      CompleteResult | null;
+  clearCompleteError:  () => void;
+  clearCompleteResult: () => void;
+}
+
 export function useOrders(): UseOrdersReturn {
-  const [orders,    setOrders]    = useState<Order[]>([]);
-  const [loading,   setLoading]   = useState(true);
-  const [error,     setError]     = useState<string | null>(null);
-  const [page,      setPage]      = useState(1);
-  const [total,     setTotal]     = useState(0);
-  const [totalPages,setTotalPages]= useState(1);
-  const [searchTerm,setSearchTerm]= useState("");
- 
-  const [completing,      setCompleting]      = useState<string | null>(null);
-  const [completeError,   setCompleteError]   = useState<string | null>(null);
-  const [completeResult,  setCompleteResult]  = useState<CompleteResult | null>(null);
- 
-  // ─── Load page ─────────────────────────────────────────────────────────────
+  const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD local TZ
+
+  const [orders,      setOrders]      = useState<Order[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState<string | null>(null);
+  const [page,        setPage]        = useState(1);
+  const [total,       setTotal]       = useState(0);
+  const [totalPages,  setTotalPages]  = useState(1);
+
+  // Filters — default to today
+  const [dateFrom,   setDateFromState]   = useState(today);
+  const [dateTo,     setDateToState]     = useState(today);
+  const [searchTerm, setSearchTermState] = useState("");
+
+  const [completing,     setCompleting]     = useState<string | null>(null);
+  const [completeError,  setCompleteError]  = useState<string | null>(null);
+  const [completeResult, setCompleteResult] = useState<CompleteResult | null>(null);
+
+  // Always reset to page 1 when filters change
+  const setDateFrom    = (d: string) => { setDateFromState(d);    setPage(1); };
+  const setDateTo      = (d: string) => { setDateToState(d);      setPage(1); };
+  const setSearchTerm  = (s: string) => { setSearchTermState(s);  setPage(1); };
+  const resetFilters   = ()          => {
+    setDateFromState(today);
+    setDateToState(today);
+    setSearchTermState("");
+    setPage(1);
+  };
+
+  // ─── Load ────────────────────────────────────────────────────────────────────
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.getAllOrders({ 
-        page, 
-        limit: LIMIT,
-        search: searchTerm || undefined 
+      const res = await api.getAllOrders({
+        page,
+        limit:    LIMIT,
+        search:   searchTerm || undefined,
+        dateFrom: dateFrom   || undefined,
+        dateTo:   dateTo     || undefined,
       });
-      const mapped = (res.data ?? []).map(mapOrder);
-      setOrders(mapped);
-      setTotal(res.pagination?.total ?? 0);
+      setOrders((res.data ?? []).map(mapOrder));
+      setTotal(res.pagination?.total       ?? 0);
       setTotalPages(res.pagination?.totalPages ?? 1);
     } catch (e: any) {
       setError(e.message ?? "Failed to load orders");
     } finally {
       setLoading(false);
     }
-  }, [page, searchTerm]);
- 
-  useEffect(() => { 
-    const timer = setTimeout(() => {
-        load(); 
-    }, 500); // debounce search
+  }, [page, searchTerm, dateFrom, dateTo]);
+
+  // Debounce text search, immediate for dates/page
+  useEffect(() => {
+    const timer = setTimeout(() => load(), searchTerm ? 400 : 0);
     return () => clearTimeout(timer);
-  }, [load]);
- 
-  // ─── Fetch single order detail ──────────────────────────────────────────────
+  }, [load, searchTerm]);
+
+  // ─── Fetch detail ────────────────────────────────────────────────────────────
   const fetchDetail = useCallback(async (id: string): Promise<Order | null> => {
     try {
       const res = await api.getAdminOrderById(id);
       return res.data ? mapOrder(res.data) : null;
     } catch { return null; }
   }, []);
- 
-  // ─── Complete order ─────────────────────────────────────────────────────────
+
+  // ─── Complete order ──────────────────────────────────────────────────────────
   const completeOrder = useCallback(async (id: string) => {
     setCompleting(id);
     setCompleteError(null);
@@ -124,20 +147,24 @@ export function useOrders(): UseOrdersReturn {
       setCompleting(null);
     }
   }, [load]);
- 
-  const stats = computeStats(orders, total);
- 
+
   return {
     orders,
-    stats,
+    stats:    computeStats(orders, total),
     loading,
     error,
     page,
     totalPages,
     total,
+    today,
+    dateFrom,
+    dateTo,
     searchTerm,
-    setSearchTerm,
     setPage,
+    setDateFrom,
+    setDateTo,
+    setSearchTerm,
+    resetFilters,
     reload:              load,
     clearError:          () => setError(null),
     fetchDetail,

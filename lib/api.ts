@@ -1,6 +1,6 @@
 // lib/api.ts
 
-const API_BASE_URL =  'http://localhost:5000';
+const API_BASE_URL = 'http://localhost:5000';
 const API_VERSION = 'v1';
 
 type ValidationError = {
@@ -140,11 +140,11 @@ class ApiService {
 
   async getUsers(filters?: { page?: number; limit?: number; status?: string; user_type?: string; search?: string }) {
     const params = new URLSearchParams();
-    if (filters?.page)      params.append('page', filters.page.toString());
-    if (filters?.limit)     params.append('limit', filters.limit.toString());
-    if (filters?.status)    params.append('status', filters.status);
+    if (filters?.page) params.append('page', filters.page.toString());
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+    if (filters?.status) params.append('status', filters.status);
     if (filters?.user_type) params.append('user_type', filters.user_type);
-    if (filters?.search)    params.append('search', filters.search);
+    if (filters?.search) params.append('search', filters.search);
     const query = params.toString() ? `?${params.toString()}` : '';
     return this.request(`/users${query}`);
   }
@@ -179,8 +179,11 @@ class ApiService {
     return this.request(`/users/${userId}/unlock`, { method: 'POST' });
   }
 
-  async resetUserPassword(userId: number) {
-    return this.request(`/users/${userId}/reset-password`, { method: 'POST' });
+  async resetUserPassword(userId: number, password?: string, sendEmail = true) {
+    return this.request(`/users/${userId}/reset-password`, {
+      method: 'POST',
+      body: JSON.stringify({ password, sendEmail }),
+    });
   }
 
   async permanentlyBlockUser(userId: number, reason: string, walletSettled?: boolean, settlementDetails?: {
@@ -217,14 +220,14 @@ class ApiService {
   async createViewerAccount(userId: number, viewerData: { name: string; email: string; password: string }) {
     return this.request(`/users/${userId}/viewer-accounts`, { method: 'POST', body: JSON.stringify(viewerData) });
   }
-  
+
 
   // ─── PRODUCTS CONFIG ─────────────────────────────────────────────────────
 
   async getUserProductConfig(id: number) {
     return this.request(`/users/${id}/products`);
   }
- 
+
   async saveUserProductConfig(id: number, configs: {
     id: string; visible: boolean; customPrice?: number; useCustomPrice: boolean;
   }[]) {
@@ -246,8 +249,8 @@ class ApiService {
 
   async getAllWalletBalances(filters?: { page?: number; limit?: number; search?: string }) {
     const params = new URLSearchParams();
-    if (filters?.page)   params.append('page',   String(filters.page));
-    if (filters?.limit)  params.append('limit',  String(filters.limit));
+    if (filters?.page) params.append('page', String(filters.page));
+    if (filters?.limit) params.append('limit', String(filters.limit));
     if (filters?.search) params.append('search', filters.search);
     return this.request(`/wallet/balances${params.toString() ? `?${params}` : ''}`);
   }
@@ -272,15 +275,12 @@ class ApiService {
     });
   }
 
-  async getAllTransactions(filters?: { page?: number; limit?: number; userId?: number; type?: string }) {
-    const params = new URLSearchParams();
-    if (filters?.page)   params.append('page',   String(filters.page));
-    if (filters?.limit)  params.append('limit',  String(filters.limit));
-    if (filters?.userId) params.append('userId', String(filters.userId));
-    if (filters?.type)   params.append('type',   filters.type);
-    return this.request(`/wallet/transactions/all${params.toString() ? `?${params}` : ''}`);
+  // Update this method in api.ts:
+  async getAllTransactions(queryString?: string) {
+    const qs = queryString ? `?${queryString}` : '';
+    return this.request(`/wallet/transactions/all${qs}`);
   }
-// ============================================
+  // ============================================
   // PRODUCTS
   // ============================================
 
@@ -291,24 +291,24 @@ class ApiService {
     source?: 'internal' | 'carrypin';
   }) {
     const p = new URLSearchParams();
-    if (f?.page)     p.append('page',     String(f.page));
-    if (f?.limit)    p.append('limit',    String(f.limit));
-    if (f?.search)   p.append('search',   f.search);
+    if (f?.page) p.append('page', String(f.page));
+    if (f?.limit) p.append('limit', String(f.limit));
+    if (f?.search) p.append('search', f.search);
     if (f?.category) p.append('category', f.category);
-    if (f?.brand)    p.append('brand',    f.brand);
-    if (f?.status)   p.append('status',   f.status);
-    if (f?.source)   p.append('source',   f.source);
+    if (f?.brand) p.append('brand', f.brand);
+    if (f?.status) p.append('status', f.status);
+    if (f?.source) p.append('source', f.source);
     return this.request(`/products${p.toString() ? '?' + p : ''}`);
   }
- 
+
   async getProductMeta(): Promise<{ success: boolean; data: { categories: string[]; brands: string[] } }> {
     return this.request('/products/meta');
   }
- 
+
   async getProductById(id: string | number) {
     return this.request(`/products/${id}`);
   }
- 
+
   async createInternalProduct(d: {
     name: string; category: string; brand: string;
     description: string; redemptionInstructions: string;
@@ -316,7 +316,7 @@ class ApiService {
   }) {
     return this.request('/products/internal', { method: 'POST', body: JSON.stringify(d) });
   }
- 
+
   async createSupplierProduct(d: {
     name: string; category: string; brand: string;
     description: string; redemptionInstructions: string;
@@ -330,27 +330,27 @@ class ApiService {
   }) {
     return this.request('/products/supplier', { method: 'POST', body: JSON.stringify(d) });
   }
- 
+
   async updateProduct(id: string | number, d: Record<string, unknown>) {
     return this.request(`/products/${id}`, { method: 'PUT', body: JSON.stringify(d) });
   }
- 
+
   async toggleProductStatus(id: string | number) {
     return this.request(`/products/${id}/toggle-status`, { method: 'PATCH' });
   }
- 
+
   async deleteProduct(id: string | number) {
     return this.request(`/products/${id}`, { method: 'DELETE' });
   }
- 
+
   async getProductCodes(id: string | number, f?: { page?: number; limit?: number; status?: string }) {
     const p = new URLSearchParams();
-    if (f?.page)   p.append('page',   String(f.page));
-    if (f?.limit)  p.append('limit',  String(f.limit));
+    if (f?.page) p.append('page', String(f.page));
+    if (f?.limit) p.append('limit', String(f.limit));
     if (f?.status) p.append('status', f.status!);
     return this.request(`/products/${id}/codes${p.toString() ? '?' + p : ''}`);
   }
- 
+
   async uploadProductCodes(id: string | number, file: File) {
     const fd = new FormData();
     fd.append('file', file);
@@ -362,7 +362,7 @@ class ApiService {
     const res = await fetch(`${this.baseURL}/products/${id}/upload-codes`, { method: 'POST', headers, body: fd });
     return this.handleResponse(res);
   }
- 
+
   async importExcelPreview(file: File) {
     const fd = new FormData();
     fd.append('file', file);
@@ -374,11 +374,11 @@ class ApiService {
     const res = await fetch(`${this.baseURL}/products/import-excel`, { method: 'POST', headers, body: fd });
     return this.handleResponse(res);
   }
- 
+
   async importBulkProducts(rows: unknown[]) {
     return this.request('/products/import-bulk', { method: 'POST', body: JSON.stringify({ rows }) });
   }
- 
+
   async checkProductStock(id: string | number) {
     return this.request(`/products/${id}/stock-check`);
   }
@@ -392,20 +392,26 @@ class ApiService {
 
   // ─── ORDERS ──────────────────────────────────────────────────────────────
 
-  async getAllOrders(params?: { status?: string; userId?: number; page?: number; limit?: number; search?: string }) {
-    const p = new URLSearchParams();
-    if (params?.status) p.set('status', params.status);
-    if (params?.userId) p.set('userId', String(params.userId));
-    if (params?.page)   p.set('page',   String(params.page));
-    if (params?.limit)  p.set('limit',  String(params.limit));
-    if (params?.search) p.set('search', params.search); // Added search parameter
-    return this.request(`/orders/admin/all${p.toString() ? '?' + p : ''}`);
+  async getAllOrders(params?: {
+    page?: number; limit?: number;
+    search?: string; dateFrom?: string; dateTo?: string;
+  }) {
+    const qs = new URLSearchParams();
+    if (params?.page) qs.set("page", String(params.page));
+    if (params?.limit) qs.set("limit", String(params.limit));
+    if (params?.search) qs.set("search", params.search);
+    if (params?.dateFrom) qs.set("dateFrom", params.dateFrom);
+    if (params?.dateTo) qs.set("dateTo", params.dateTo);
+    return this.request(`/orders/admin/all?${qs.toString()}`);
   }
- 
+
   async getAdminOrderById(id: string | number) {
     return this.request(`/orders/admin/${id}`);
   }
- 
+  async getReceiptSignedUrl(requestId: number) {
+    return this.request(`/wallet/topup/${requestId}/receipt`);
+  }
+
   async completeOrder(id: string | number) {
     return this.request(`/orders/admin/${id}/complete`, { method: 'POST' });
   }
