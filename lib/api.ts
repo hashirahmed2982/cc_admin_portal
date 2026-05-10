@@ -415,6 +415,12 @@ class ApiService {
   async completeOrder(id: string | number) {
     return this.request(`/orders/admin/${id}/complete`, { method: 'POST' });
   }
+  async updateProfile(data: { name: string , email: string }) {
+  return this.request('/auth/profile', {
+    method: 'PUT',
+    body: JSON.stringify({ name: data.name , email: data.email }),
+  });
+}
 }
 
 export const api = new ApiService();
