@@ -1,6 +1,7 @@
 // lib/api.ts
 
 const API_BASE_URL = 'http://178.104.162.74:5000';
+// const API_BASE_URL = 'http://localhost:5000';
 const API_VERSION = 'v1';
 
 type ValidationError = {
@@ -19,10 +20,10 @@ class ApiService {
     this.baseURL = `${API_BASE_URL}/api/${API_VERSION}`;
   }
 
-  private getHeaders(includeAuth = true): HeadersInit {
+  private async getHeaders(includeAuth = true): Promise<HeadersInit> {
     const headers: HeadersInit = { 'Content-Type': 'application/json' };
     if (includeAuth && typeof window !== 'undefined') {
-      const token = localStorage.getItem('accessToken');
+      const token = await this.getValidToken();
       if (token) headers['Authorization'] = `Bearer ${token}`;
     }
     return headers;
@@ -54,6 +55,16 @@ class ApiService {
         localStorage.setItem('mustChangePassword', 'true');
         window.location.href = '/change-password';
       }
+      if (response.status === 403) {
+        if (
+          data.message?.toLowerCase().includes("locked") ||
+          data.message?.toLowerCase().includes("blocked")
+        ) {
+          localStorage.clear();
+          window.location.href = "/login";
+          return;
+        }
+      }
 
       const error: ApiError = new Error(data.message || 'API request failed');
       if (data.errors) {
@@ -64,10 +75,54 @@ class ApiService {
     }
     return data;
   }
+  private refreshPromise: Promise<string> | null = null;
+
+  private async getValidToken(): Promise<string | null> {
+    const accessToken = localStorage.getItem('accessToken');
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (!accessToken || !refreshToken) return null;
+
+    // Decode token to check expiry (without verifying signature)
+    try {
+      const payload = JSON.parse(atob(accessToken.split('.')[1]));
+      const expiresIn = payload.exp * 1000 - Date.now();
+
+      // If token expires in less than 2 minutes, refresh it proactively
+      if (expiresIn < 2 * 60 * 1000) {
+        if (!this.refreshPromise) {
+          this.refreshPromise = this.doRefresh(refreshToken).finally(() => {
+            this.refreshPromise = null;
+          });
+        }
+        return await this.refreshPromise;
+      }
+    } catch {
+      // malformed token — fall through
+    }
+    return accessToken;
+  }
+
+  private async doRefresh(refreshToken: string): Promise<string> {
+    const res = await fetch(`${this.baseURL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    if (!res.ok) {
+      localStorage.clear();
+      window.location.href = '/login';
+      throw new Error('Session expired');
+    }
+
+    const data = await res.json();
+    localStorage.setItem('accessToken', data.data.accessToken);
+    return data.data.accessToken;
+  }
 
   private async request(endpoint: string, options: RequestInit = {}, includeAuth = true) {
     const url = `${this.baseURL}${endpoint}`;
-    const headers = this.getHeaders(includeAuth);
+    const headers = await this.getHeaders(includeAuth); // ← await here
     try {
       const response = await fetch(url, { ...options, headers: { ...headers, ...options.headers } });
       return await this.handleResponse(response);
@@ -81,6 +136,25 @@ class ApiService {
 
   async login(email: string, password: string, mfaCode?: string) {
     return this.request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password, mfaCode }) }, false);
+  }
+  async getReport(
+    reportId: string,
+    params?: { from?: string; to?: string; page?: number; limit?: number }
+  ): Promise<{
+    success: boolean;
+    data: {
+      columns: string[];
+      rows: (string | number)[][];
+      chartData?: { label: string; value: number; color?: string }[];
+      pagination?: { page: number; limit: number; total: number };
+    };
+  }> {
+    const p = new URLSearchParams();
+    if (params?.from) p.append('from', params.from);
+    if (params?.to) p.append('to', params.to);
+    if (params?.page) p.append('page', String(params.page));
+    if (params?.limit) p.append('limit', String(params.limit));
+    return this.request(`/reports/${reportId}${p.toString() ? '?' + p : ''}`);
   }
 
   async changePassword(currentPassword: string, newPassword: string) {
@@ -415,12 +489,12 @@ class ApiService {
   async completeOrder(id: string | number) {
     return this.request(`/orders/admin/${id}/complete`, { method: 'POST' });
   }
-  async updateProfile(data: { name: string , email: string }) {
-  return this.request('/auth/profile', {
-    method: 'PUT',
-    body: JSON.stringify({ name: data.name , email: data.email }),
-  });
-}
+  async updateProfile(data: { name: string, email: string }) {
+    return this.request('/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify({ name: data.name, email: data.email }),
+    });
+  }
 }
 
 export const api = new ApiService();

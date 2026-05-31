@@ -2,8 +2,10 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useLockedGuard } from "@/hooks/useLockedGuard";
 
 export default function Home() {
+  useLockedGuard();
   const router = useRouter();
 
   useEffect(() => {

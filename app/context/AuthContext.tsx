@@ -32,6 +32,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const stored = localStorage.getItem("user");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.status === "locked" || parsed.status === "permanently_blocked") {
+          localStorage.clear();
+          window.location.href = "/login";
+          return;
+        }
+      }
       if (stored) setUserState(JSON.parse(stored));
       setMustChangePasswordState(localStorage.getItem("mustChangePassword") === "true");
     } catch {
