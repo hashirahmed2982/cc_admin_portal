@@ -10,78 +10,85 @@ const LIMIT = 20;
 
 export interface FulfilledItem {
   productName: string;
-  quantity:    number;
-  delivered:   number;
+  quantity: number;
+  delivered: number;
 }
 
 export interface PendingItem {
   productName: string;
-  quantity:    number;
-  delivered:   number;
-  pending:     number;
-  reason:      string;
+  quantity: number;
+  delivered: number;
+  pending: number;
+  reason: string;
 }
 
 export interface CompleteResult {
-  orderNumber:    string;
-  orderStatus:    string;
+  orderNumber: string;
+  orderStatus: string;
   deliveryStatus: string;
   fulfilledItems: FulfilledItem[];
-  pendingItems:   PendingItem[];
+  pendingItems: PendingItem[];
 }
 
 interface UseOrdersReturn {
-  orders:       Order[];
-  stats:        OrderStats;
-  loading:      boolean;
-  error:        string | null;
-  page:         number;
-  totalPages:   number;
-  total:        number;
-  today:        string;
-  dateFrom:     string;
-  dateTo:       string;
-  searchTerm:   string;
-  setPage:      (p: number | ((prev: number) => number)) => void;
-  setDateFrom:  (d: string) => void;
-  setDateTo:    (d: string) => void;
-  setSearchTerm:(s: string) => void;
+  orders: Order[];
+  stats: OrderStats;
+  loading: boolean;
+  error: string | null;
+  page: number;
+  totalPages: number;
+  total: number;
+  today: string;
+  dateFrom: string;
+  dateTo: string;
+  searchTerm: string;
+  setPage: (p: number | ((prev: number) => number)) => void;
+  setDateFrom: (d: string) => void;
+  setDateTo: (d: string) => void;
+  setSearchTerm: (s: string) => void;
   resetFilters: () => void;
-  reload:       () => void;
-  clearError:   () => void;
-  fetchDetail:  (id: string) => Promise<Order | null>;
-  completeOrder:       (id: string) => Promise<void>;
-  completing:          string | null;
-  completeError:       string | null;
-  completeResult:      CompleteResult | null;
-  clearCompleteError:  () => void;
+  reload: () => void;
+  clearError: () => void;
+  fetchDetail: (id: string) => Promise<Order | null>;
+  completeOrder: (id: string) => Promise<void>;
+  completing: string | null;
+  completeError: string | null;
+  completeResult: CompleteResult | null;
+  clearCompleteError: () => void;
   clearCompleteResult: () => void;
+  cancelOrder: (id: string, reason: string) => Promise<void>;
+  cancelling: string | null;
+  cancelError: string | null;
+  clearCancelError: () => void;
 }
 
 export function useOrders(): UseOrdersReturn {
   const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD local TZ
 
-  const [orders,      setOrders]      = useState<Order[]>([]);
-  const [loading,     setLoading]     = useState(true);
-  const [error,       setError]       = useState<string | null>(null);
-  const [page,        setPage]        = useState(1);
-  const [total,       setTotal]       = useState(0);
-  const [totalPages,  setTotalPages]  = useState(1);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [cancelling, setCancelling] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
 
   // Filters — default to today
-  const [dateFrom,   setDateFromState]   = useState(today);
-  const [dateTo,     setDateToState]     = useState(today);
+  const [dateFrom, setDateFromState] = useState(today);
+  const [dateTo, setDateToState] = useState(today);
   const [searchTerm, setSearchTermState] = useState("");
 
-  const [completing,     setCompleting]     = useState<string | null>(null);
-  const [completeError,  setCompleteError]  = useState<string | null>(null);
+  const [completing, setCompleting] = useState<string | null>(null);
+  const [completeError, setCompleteError] = useState<string | null>(null);
   const [completeResult, setCompleteResult] = useState<CompleteResult | null>(null);
 
   // Always reset to page 1 when filters change
-  const setDateFrom    = (d: string) => { setDateFromState(d);    setPage(1); };
-  const setDateTo      = (d: string) => { setDateToState(d);      setPage(1); };
-  const setSearchTerm  = (s: string) => { setSearchTermState(s);  setPage(1); };
-  const resetFilters   = ()          => {
+  const setDateFrom = (d: string) => { setDateFromState(d); setPage(1); };
+  const setDateTo = (d: string) => { setDateToState(d); setPage(1); };
+  const setSearchTerm = (s: string) => { setSearchTermState(s); setPage(1); };
+  const resetFilters = () => {
     setDateFromState(today);
     setDateToState(today);
     setSearchTermState("");
@@ -95,13 +102,13 @@ export function useOrders(): UseOrdersReturn {
     try {
       const res = await api.getAllOrders({
         page,
-        limit:    LIMIT,
-        search:   searchTerm || undefined,
-        dateFrom: dateFrom   || undefined,
-        dateTo:   dateTo     || undefined,
+        limit: LIMIT,
+        search: searchTerm || undefined,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
       });
       setOrders((res.data ?? []).map(mapOrder));
-      setTotal(res.pagination?.total       ?? 0);
+      setTotal(res.pagination?.total ?? 0);
       setTotalPages(res.pagination?.totalPages ?? 1);
     } catch (e: any) {
       setError(e.message ?? "Failed to load orders");
@@ -133,11 +140,11 @@ export function useOrders(): UseOrdersReturn {
       const res = await api.completeOrder(id);
       if (res.data) {
         setCompleteResult({
-          orderNumber:    res.data.orderNumber    ?? "",
-          orderStatus:    res.data.orderStatus    ?? res.data.status ?? "",
+          orderNumber: res.data.orderNumber ?? "",
+          orderStatus: res.data.orderStatus ?? res.data.status ?? "",
           deliveryStatus: res.data.deliveryStatus ?? "",
           fulfilledItems: res.data.fulfilledItems ?? [],
-          pendingItems:   res.data.pendingItems   ?? [],
+          pendingItems: res.data.pendingItems ?? [],
         });
       }
       await load();
@@ -147,10 +154,21 @@ export function useOrders(): UseOrdersReturn {
       setCompleting(null);
     }
   }, [load]);
-
+  const cancelOrder = useCallback(async (id: string, reason: string) => {
+    setCancelling(id);
+    setCancelError(null);
+    try {
+      await api.cancelOrder(id, reason);
+      await load();
+    } catch (e: any) {
+      setCancelError(e.message ?? "Failed to cancel order");
+    } finally {
+      setCancelling(null);
+    }
+  }, [load]);
   return {
     orders,
-    stats:    computeStats(orders, total),
+    stats: computeStats(orders, total),
     loading,
     error,
     page,
@@ -165,14 +183,18 @@ export function useOrders(): UseOrdersReturn {
     setDateTo,
     setSearchTerm,
     resetFilters,
-    reload:              load,
-    clearError:          () => setError(null),
+    reload: load,
+    clearError: () => setError(null),
     fetchDetail,
     completeOrder,
     completing,
     completeError,
     completeResult,
-    clearCompleteError:  () => setCompleteError(null),
+    clearCompleteError: () => setCompleteError(null),
     clearCompleteResult: () => setCompleteResult(null),
+    cancelOrder,
+    cancelling,
+    cancelError,
+    clearCancelError: () => setCancelError(null),
   };
 }

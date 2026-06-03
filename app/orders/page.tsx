@@ -2,12 +2,12 @@
 
 import { useState, useMemo } from "react";
 import Dashboard from "@/components/Dashboard";
-import OrderStatsCards     from "@/components/orders/OrderStatsCards";
-import OrdersTable         from "@/components/orders/OrdersTable";
-import OrderDetailModal    from "@/components/orders/OrderDetailModal";
+import OrderStatsCards from "@/components/orders/OrderStatsCards";
+import OrdersTable from "@/components/orders/OrdersTable";
+import OrderDetailModal from "@/components/orders/OrderDetailModal";
 import CompleteResultModal from "@/components/orders/CompleteResultModal";
-import { useOrders }       from "@/hooks/useOrders";
-import type { Order }      from "@/types/order.types";
+import { useOrders } from "@/hooks/useOrders";
+import type { Order } from "@/types/order.types";
 
 type Tab = "all" | "pending";
 
@@ -22,9 +22,13 @@ export default function OrdersManagementPage() {
     fetchDetail, completeOrder,
     completing, completeError, completeResult,
     clearCompleteError, clearCompleteResult,
+    cancelOrder,
+    cancelling,
+    cancelError,
+    clearCancelError,
   } = useOrders();
 
-  const [activeTab,     setActiveTab]     = useState<Tab>("all");
+  const [activeTab, setActiveTab] = useState<Tab>("all");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   const isDefault = dateFrom === today && dateTo === today && !searchTerm;
@@ -48,6 +52,14 @@ export default function OrdersManagementPage() {
       if (updated) setSelectedOrder(updated);
     }
   };
+  const handleCancel = async (id: string, reason: string) => {
+  await cancelOrder(id, reason);
+  if (selectedOrder?.id === id) {
+    const updated = await fetchDetail(id);
+    if (updated) setSelectedOrder(updated);
+    else setSelectedOrder(null);
+  }
+};
 
   return (
     <Dashboard>
@@ -61,8 +73,9 @@ export default function OrdersManagementPage() {
           </p>
         </div>
 
-        {error       && <ErrorBanner message={error}        onDismiss={clearError}        onRetry={reload} />}
+        {error && <ErrorBanner message={error} onDismiss={clearError} onRetry={reload} />}
         {completeError && <ErrorBanner message={completeError} onDismiss={clearCompleteError} />}
+        {cancelError && <ErrorBanner message={cancelError} onDismiss={clearCancelError} />}
 
         <OrderStatsCards stats={stats} loading={loading} />
 
@@ -74,7 +87,7 @@ export default function OrdersManagementPage() {
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
               fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input type="search"
               placeholder="Search by order ID, client name or product..."
@@ -85,10 +98,10 @@ export default function OrdersManagementPage() {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-              className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+              className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
             <span className="text-gray-400 text-sm">→</span>
             <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-              className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+              className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
             {!isDefault && (
               <button onClick={resetFilters}
                 className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg transition-colors">
@@ -109,8 +122,8 @@ export default function OrdersManagementPage() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
           <div className="border-b border-gray-200 dark:border-gray-700">
             <nav className="flex -mb-px">
-              <TabButton active={activeTab === "all"}     onClick={() => setActiveTab("all")}
-                label="All Orders"        count={total}                          badgeVariant="gray" />
+              <TabButton active={activeTab === "all"} onClick={() => setActiveTab("all")}
+                label="All Orders" count={total} badgeVariant="gray" />
               <TabButton active={activeTab === "pending"} onClick={() => setActiveTab("pending")}
                 label="Pending / Partial" count={stats.pending + stats.processing} badgeVariant="orange" />
             </nav>
@@ -143,6 +156,8 @@ export default function OrdersManagementPage() {
           onClose={() => setSelectedOrder(null)}
           onComplete={handleComplete}
           completing={completing === selectedOrder.id}
+          cancelling={cancelling === selectedOrder?.id}  // ← ADD
+          onCancel={handleCancel}   
         />
       )}
 
@@ -174,7 +189,7 @@ function InfoBanner() {
     <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
       <div className="flex gap-3">
         <svg className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         <p className="text-sm text-blue-700 dark:text-blue-300">
           <strong>Fulfillment flow:</strong> Available codes are sent immediately on order placement.
@@ -195,11 +210,10 @@ function TabButton({ active, onClick, label, count, badgeVariant }: {
     : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400";
   return (
     <button onClick={onClick}
-      className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
-        active
-          ? "border-blue-500 text-blue-600 dark:text-blue-400"
-          : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-      }`}>
+      className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${active
+        ? "border-blue-500 text-blue-600 dark:text-blue-400"
+        : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+        }`}>
       {label}
       {count > 0 && <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${badgeCls}`}>{count}</span>}
     </button>
@@ -210,7 +224,7 @@ function LoadingSkeleton({ rows }: { rows: number }) {
   return (
     <div className="space-y-3">
       {[...Array(rows)].map((_, i) => (
-        <div key={i} className="h-14 bg-gray-100 dark:bg-gray-700 rounded-lg animate-pulse"/>
+        <div key={i} className="h-14 bg-gray-100 dark:bg-gray-700 rounded-lg animate-pulse" />
       ))}
     </div>
   );

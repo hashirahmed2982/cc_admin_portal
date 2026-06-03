@@ -24,9 +24,9 @@ export default function ProductTable({
 
   const getStatusBadge = (status: string, product: Product) => {
     // out_of_stock is derived from inventory, not a real status field
-    if (status === "active" && !product.isSupplierProduct && (product.availableCodes ?? 0) === 0 && (product.totalCodes ?? 0) > 0) {
-      return "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400"; // out of stock display
-    }
+    // if (status === "active" && !product.isSupplierProduct && (product.availableCodes ?? 0) === 0 && (product.totalCodes ?? 0) > 0) {
+    //   return "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400"; // out of stock display
+    // }
     const styles: Record<string, string> = {
       active:   "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400",
       inactive: "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400",
@@ -35,9 +35,9 @@ export default function ProductTable({
   };
 
   const getStatusLabel = (status: string, product: Product) => {
-    if (status === "active" && !product.isSupplierProduct && (product.availableCodes ?? 0) === 0 && (product.totalCodes ?? 0) > 0) {
-      return "OUT OF STOCK";
-    }
+    // if (status === "active" && !product.isSupplierProduct && (product.availableCodes ?? 0) === 0 && (product.totalCodes ?? 0) > 0) {
+    //   return "OUT OF STOCK";
+    // }
     return status.toUpperCase();
   };
 

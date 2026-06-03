@@ -20,14 +20,53 @@ interface Code {
   reserved_at: string | null;
 }
 
+interface CodeStats {
+  available: number;
+  sold: number;
+  reserved: number;
+  invalid: number;
+  total: number;
+}
+
 export default function ViewCodesModal({ product, onClose }: ViewCodesModalProps) {
   const [codes, setCodes]           = useState<Code[]>([]);
+  const [stats, setStats]           = useState<CodeStats | null>(null);
   const [loading, setLoading]       = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage]             = useState(1);
   const [total, setTotal]           = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const LIMIT = 30;
+
+  // Load stats once on mount by fetching all-status counts
+  const loadStats = useCallback(async () => {
+    try {
+      // Fetch one row of each status to get accurate counts
+      const [all, available, sold, reserved, invalid] = await Promise.all([
+        api.getProductCodes(product.id, { page: 1, limit: 1 }),
+        api.getProductCodes(product.id, { page: 1, limit: 1, status: "available" }),
+        api.getProductCodes(product.id, { page: 1, limit: 1, status: "sold" }),
+        api.getProductCodes(product.id, { page: 1, limit: 1, status: "reserved" }),
+        api.getProductCodes(product.id, { page: 1, limit: 1, status: "invalid" }),
+      ]);
+      setStats({
+        total:     all.pagination?.total      ?? 0,
+        available: available.pagination?.total ?? 0,
+        sold:      sold.pagination?.total      ?? 0,
+        reserved:  reserved.pagination?.total  ?? 0,
+        invalid:   invalid.pagination?.total   ?? 0,
+      });
+    } catch {
+      // Fallback to product prop values if stat fetch fails
+      setStats({
+        available: product.availableCodes ?? 0,
+        sold:      product.soldCodes      ?? 0,
+        reserved:  0,
+        invalid:   0,
+        total:     product.totalCodes     ?? 0,
+      });
+    }
+  }, [product.id]);
 
   const loadCodes = useCallback(async () => {
     try {
@@ -40,15 +79,16 @@ export default function ViewCodesModal({ product, onClose }: ViewCodesModalProps
       setCodes(result.data || []);
       setTotal(result.pagination?.total || 0);
       setTotalPages(result.pagination?.totalPages || 1);
-    } catch (err: any) {
+    } catch {
       setCodes([]);
     } finally {
       setLoading(false);
     }
   }, [product.id, page, statusFilter]);
 
-  useEffect(() => { loadCodes(); }, [loadCodes]);
-  useEffect(() => { setPage(1); }, [statusFilter]);
+  useEffect(() => { loadStats(); },  [loadStats]);
+  useEffect(() => { loadCodes(); },  [loadCodes]);
+  useEffect(() => { setPage(1); },   [statusFilter]);
 
   const statusBadge = (s: string) => {
     const map: Record<string, string> = {
@@ -58,13 +98,6 @@ export default function ViewCodesModal({ product, onClose }: ViewCodesModalProps
       invalid:   "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400",
     };
     return map[s] || map.available;
-  };
-
-  // Summary counts from the current full dataset perspective
-  const summary = {
-    available: product.availableCodes ?? 0,
-    sold:      product.soldCodes ?? 0,
-    total:     product.totalCodes ?? 0,
   };
 
   return (
@@ -87,36 +120,43 @@ export default function ViewCodesModal({ product, onClose }: ViewCodesModalProps
         </div>
 
         <div className="p-6 space-y-4 flex-1 overflow-y-auto">
-          {/* Stats */}
+
+          {/* Stats — live counts from API */}
           <div className="grid grid-cols-3 gap-4">
             <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 text-center">
               <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Available</p>
-              <p className="text-2xl font-bold text-green-600 dark:text-green-400">{summary.available.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                {stats ? stats.available.toLocaleString() : "…"}
+              </p>
             </div>
             <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 text-center">
               <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Sold</p>
-              <p className="text-2xl font-bold text-gray-600 dark:text-gray-400">{summary.sold.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-600 dark:text-gray-400">
+                {stats ? stats.sold.toLocaleString() : "…"}
+              </p>
             </div>
             <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-center">
               <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Total</p>
-              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{summary.total.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                {stats ? stats.total.toLocaleString() : "…"}
+              </p>
             </div>
           </div>
 
           {/* Filters */}
-          <div className="flex gap-3">
+          <div className="flex gap-3 items-center">
             <select
               value={statusFilter}
               onChange={e => setStatusFilter(e.target.value)}
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">All Statuses</option>
-              <option value="available">Available</option>
-              <option value="sold">Sold</option>
-              <option value="reserved">Reserved</option>
-              <option value="invalid">Invalid</option>
+              <option value="available">Available {stats ? `(${stats.available})` : ""}</option>
+              <option value="sold">Sold {stats ? `(${stats.sold})` : ""}</option>
+              <option value="reserved">Reserved {stats ? `(${stats.reserved})` : ""}</option>
+              <option value="invalid">Invalid {stats ? `(${stats.invalid})` : ""}</option>
             </select>
-            <span className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+            <span className="text-sm text-gray-500 dark:text-gray-400">
               {total.toLocaleString()} codes {statusFilter ? `(${statusFilter})` : "total"}
             </span>
           </div>

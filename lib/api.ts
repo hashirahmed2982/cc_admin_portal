@@ -1,7 +1,7 @@
 // lib/api.ts
 
-const API_BASE_URL = 'http://178.104.162.74:5000';
-// const API_BASE_URL = 'http://localhost:5000';
+// const API_BASE_URL = 'http://178.104.162.74:5000';
+const API_BASE_URL = 'http://localhost:5000';
 const API_VERSION = 'v1';
 
 type ValidationError = {
@@ -160,7 +160,12 @@ class ApiService {
   async changePassword(currentPassword: string, newPassword: string) {
     return this.request('/auth/change-password', { method: 'POST', body: JSON.stringify({ currentPassword, newPassword }) });
   }
-
+  async cancelOrder(id: string | number, reason?: string) {
+    return this.request(`/orders/admin/${id}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  }
   async getAdminDashboard() {
     return this.request('/admin/dashboard');
   }
@@ -237,7 +242,7 @@ class ApiService {
     return this.request('/users', { method: 'POST', body: JSON.stringify(userData) });
   }
 
-  async updateUser(userId: number, updates: { name?: string; company?: string; phone?: string }) {
+  async updateUser(userId: number, updates: { name?: string; company?: string; phone?: string; email?: string }) {
     return this.request(`/users/${userId}`, { method: 'PUT', body: JSON.stringify(updates) });
   }
 

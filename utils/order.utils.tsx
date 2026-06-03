@@ -38,7 +38,9 @@ export function OrderStatusBadge({ status }: { status: string }) {
     </span>
   );
 }
-
+export function isCancellable(order: Order): boolean {
+  return order.status !== "completed" && order.status !== "cancelled";
+}
 // ─── Guard: can admin still complete this order? ──────────────────────────────
 
 export function isCompletable(order: Order): boolean {
