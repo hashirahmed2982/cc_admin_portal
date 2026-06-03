@@ -22,10 +22,10 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/v1/auth/login`,
       // const response = await fetch(
-      //   `${process.env.NEXT_PUBLIC_API_URL || "http://178.104.162.74:5000"}/api/v1/auth/login`,
+      //   `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/v1/auth/login`,
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || "http://178.104.162.74:5000"}/api/v1/auth/login`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
