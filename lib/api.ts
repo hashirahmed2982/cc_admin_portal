@@ -238,11 +238,12 @@ class ApiService {
     name: string;
     company?: string;
     user_type: 'admin' | 'b2b_client';
+    zip_password?: string;
   }) {
     return this.request('/users', { method: 'POST', body: JSON.stringify(userData) });
   }
 
-  async updateUser(userId: number, updates: { name?: string; company?: string; phone?: string; email?: string }) {
+  async updateUser(userId: number, updates: { name?: string; company?: string; phone?: string; email?: string; zip_password?: string }) {
     return this.request(`/users/${userId}`, { method: 'PUT', body: JSON.stringify(updates) });
   }
 
