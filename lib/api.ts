@@ -471,7 +471,13 @@ class ApiService {
   }
 
   // ─── ORDERS ──────────────────────────────────────────────────────────────
+  async getOrderCodes(id: string | number) {
+    return this.request(`/orders/admin/${id}/codes`);
+  }
 
+  async resendOrderEmail(id: string | number) {
+    return this.request(`/orders/admin/${id}/resend-email`, { method: 'POST' });
+  }
   async getAllOrders(params?: {
     page?: number; limit?: number;
     search?: string; dateFrom?: string; dateTo?: string;
