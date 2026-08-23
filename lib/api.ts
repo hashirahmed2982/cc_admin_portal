@@ -1,7 +1,7 @@
 // lib/api.ts
 
-const API_BASE_URL = 'https://api.cardcovefzc.com';
-// const API_BASE_URL = 'http://178.104.162.74:5000';
+// const API_BASE_URL = 'https://api.cardcovefzc.com';
+const API_BASE_URL = 'http://178.104.162.74:5000';
 // const API_BASE_URL = 'http://localhost:5000';
 const API_VERSION = 'v1';
 
@@ -28,6 +28,18 @@ class ApiService {
       if (token) headers['Authorization'] = `Bearer ${token}`;
     }
     return headers;
+  }
+  async bulkSetProductStatus(payload: {
+    productIds?: string[];
+    isActive: boolean;
+    selectAllMatching?: boolean;
+    filters?: { search?: string; category?: string; brand?: string; status?: string; source?: string };
+    excludeIds?: string[];
+  }) {
+    return this.request('/products/bulk-status', {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
   }
 
   private getUserEmail(): string | null {
@@ -166,6 +178,42 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify({ reason }),
     });
+  }
+  async getImageLibrary(): Promise<{
+    success: boolean;
+    data: {
+      filename: string;
+      url: string;
+      sizeKb: number;
+      uploadedAt: string;
+      usedBy: { id: string; name: string }[];
+    }[];
+  }> {
+    return this.request('/products/images/library');
+  }
+
+  async deleteLibraryImage(filename: string) {
+    return this.request(`/products/images/library/${encodeURIComponent(filename)}`, {
+      method: 'DELETE',
+    });
+  }
+  async uploadProductImage(file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const headers = await this.getHeaders(true);
+    // Remove Content-Type so browser sets it with boundary for multipart
+    delete (headers as Record<string, string>)['Content-Type'];
+
+    const res = await fetch(`${this.baseURL}/products/upload-image`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    const data = await res.json();
+    if (!data.success) throw new Error(data.message || 'Image upload failed');
+    return data.data.url;
   }
   async getAdminDashboard() {
     return this.request('/admin/dashboard');

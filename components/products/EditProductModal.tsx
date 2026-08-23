@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Product } from "@/app/products/page";
+import { api } from "@/lib/api";
+import ImageLibraryModal from "@/components/products/ImageLibraryModal";
 
 interface EditProductModalProps {
   product: Product;
@@ -28,6 +30,11 @@ export default function EditProductModal({
     discountPrice: product.discountPrice?.toString() || "",
   });
 
+  const [images, setImages] = useState<string[]>(product.images || []);
+  const [showPicker, setShowPicker] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({
@@ -36,6 +43,7 @@ export default function EditProductModal({
       discountPrice: formData.discountPrice
         ? parseFloat(formData.discountPrice)
         : undefined,
+      images, // include current image state in the update payload
     });
   };
 
@@ -44,6 +52,32 @@ export default function EditProductModal({
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const addImageFromLibrary = (url: string) => {
+    setImages((prev) => (prev.includes(url) ? prev : [...prev, url]));
+    setShowPicker(false);
+  };
+
+  const removeImage = (url: string) => {
+    setImages((prev) => prev.filter((u) => u !== url));
+  };
+
+  const handleDirectUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file later
+    if (!file) return;
+
+    setUploadError(null);
+    setUploading(true);
+    try {
+      const url = await api.uploadProductImage(file);
+      setImages((prev) => [...prev, url]);
+    } catch (err: unknown) {
+      setUploadError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -128,6 +162,76 @@ export default function EditProductModal({
             </div>
           </div>
 
+          {/* ── Product Images ─────────────────────────────────────────── */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Product Images
+            </label>
+
+            {images.length > 0 && (
+              <div className="grid grid-cols-4 gap-2 mb-3">
+                {images.map((url) => (
+                  <div key={url} className="relative group">
+                    <img
+                      src={url}
+                      alt=""
+                      className="w-full h-20 object-cover rounded border border-gray-200 dark:border-gray-600"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(url)}
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-600 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Remove image"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {images.length === 0 && (
+              <div className="w-full h-20 border border-dashed border-gray-300 dark:border-gray-600 rounded flex items-center justify-center text-xs text-gray-400 mb-3">
+                No images attached
+              </div>
+            )}
+
+            <div className="flex gap-2 items-center flex-wrap">
+              <button
+                type="button"
+                onClick={() => setShowPicker(true)}
+                className="px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Choose from Library
+              </button>
+
+              <label className="px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer">
+                {uploading ? "Uploading…" : "Upload New"}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleDirectUpload}
+                  disabled={uploading}
+                  className="hidden"
+                />
+              </label>
+
+              {images.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setImages([])}
+                  className="px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                >
+                  Remove All
+                </button>
+              )}
+            </div>
+
+            {uploadError && (
+              <p className="text-xs text-red-600 dark:text-red-400 mt-1.5">{uploadError}</p>
+            )}
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Description
@@ -204,6 +308,13 @@ export default function EditProductModal({
           </div>
         </form>
       </div>
+
+      {showPicker && (
+        <ImageLibraryModal
+          onClose={() => setShowPicker(false)}
+          onSelect={addImageFromLibrary}
+        />
+      )}
     </div>
   );
 }

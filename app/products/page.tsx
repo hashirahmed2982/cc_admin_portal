@@ -10,6 +10,7 @@ import UploadCodesModal from "@/components/products/UploadCodesModal";
 import ViewCodesModal from "@/components/products/ViewCodesModal";
 import ImportProductsModal from "@/components/products/ImportProductsModal";
 import ProductImageGallery from "@/components/products/ProductImageGallery";
+import ImageLibraryModal from "@/components/products/ImageLibraryModal";
 
 export interface Product {
   id: string;
@@ -50,8 +51,8 @@ export default function ProductsPage() {
   const [categories, setCategories] = useState<string[]>([]);
   const [brands, setBrands] = useState<string[]>([]);
   const [page, setPage] = useState(1);
-   const [totalPages,     setTotalPages]     = useState(1);
-  const [total,          setTotal]          = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const LIMIT = 20;
 
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -60,6 +61,26 @@ export default function ProductsPage() {
   const [viewingCodesProduct, setViewingCodesProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [viewingImagesProduct, setViewingImagesProduct] = useState<Product | null>(null);
+  const [showImageLibrary, setShowImageLibrary] = useState(false);
+
+  // ── Selection state ────────────────────────────────────────────────────
+  // Two modes:
+  //  - normal: selectedIds holds exactly the checked product IDs (page-scoped)
+  //  - selectAllMatching: everything matching the current filters is
+  //    considered selected EXCEPT whatever is in excludedIds (deselected
+  //    after clicking "select all"). This lets bulk actions span every page
+  //    without pulling thousands of IDs into the browser.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectAllMatching, setSelectAllMatching] = useState(false);
+  const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set());
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+
+  const currentFilters = {
+    search: searchTerm || undefined,
+    category: filterCategory !== "all" ? filterCategory : undefined,
+    status: filterStatus !== "all" ? filterStatus : undefined,
+    source: filterSource !== "all" ? (filterSource as "internal" | "carrypin") : undefined,
+  };
 
   const loadProducts = useCallback(async () => {
     try {
@@ -68,13 +89,10 @@ export default function ProductsPage() {
       const result = await api.getProducts({
         page,
         limit: LIMIT,
-        search: searchTerm || undefined,
-        category: filterCategory !== "all" ? filterCategory : undefined,
-        status: filterStatus !== "all" ? filterStatus : undefined,
-        source: filterSource !== "all" ? filterSource as "internal" | "carrypin" : undefined,
+        ...currentFilters,
       });
       setProducts(result.data || []);
-      setTotal(result.pagination?.total      || 0);
+      setTotal(result.pagination?.total || 0);
       setTotalPages(result.pagination?.totalPages || 1);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to load products";
@@ -83,7 +101,7 @@ export default function ProductsPage() {
       setLoading(false);
     }
   }, [page, searchTerm, filterCategory, filterStatus, filterSource]);
-  
+
   const handleToggleStatus = useCallback(async (productId: string) => {
     try {
       await api.toggleProductStatus(productId);
@@ -118,25 +136,124 @@ export default function ProductsPage() {
     loadMeta();
   }, []);
 
+  // Filters/search changing invalidates any selection — a different result
+  // set means "select all matching" would mean something different now.
+  useEffect(() => {
+    setSelectedIds(new Set());
+    setSelectAllMatching(false);
+    setExcludedIds(new Set());
+  }, [searchTerm, filterCategory, filterStatus, filterSource]);
+
+  // Page changing does NOT clear select-all-matching (it's meant to span
+  // pages), but does clear plain page-scoped selection.
+  useEffect(() => {
+    if (!selectAllMatching) setSelectedIds(new Set());
+  }, [page]);
+
+  const isSelected = useCallback((id: string) => {
+    return selectAllMatching ? !excludedIds.has(id) : selectedIds.has(id);
+  }, [selectAllMatching, excludedIds, selectedIds]);
+
+  const allSelectedOnPage = products.length > 0 && products.every(p => isSelected(p.id));
+  const someSelectedOnPage = products.some(p => isSelected(p.id)) && !allSelectedOnPage;
+  const selectedCount = selectAllMatching ? Math.max(0, total - excludedIds.size) : selectedIds.size;
+
+  const handleToggleSelect = useCallback((productId: string) => {
+    if (selectAllMatching) {
+      setExcludedIds((prev) => {
+        const next = new Set(prev);
+        next.has(productId) ? next.delete(productId) : next.add(productId);
+        return next;
+      });
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.has(productId) ? next.delete(productId) : next.add(productId);
+        return next;
+      });
+    }
+  }, [selectAllMatching]);
+
+  const handleToggleSelectAllOnPage = useCallback(() => {
+    if (selectAllMatching) {
+      // Header checkbox while in select-all mode clears everything back to normal mode
+      setSelectAllMatching(false);
+      setExcludedIds(new Set());
+      setSelectedIds(new Set());
+      return;
+    }
+    setSelectedIds((prev) => {
+      const allSelected = products.length > 0 && products.every(p => prev.has(p.id));
+      if (allSelected) return new Set();
+      return new Set(products.map(p => p.id));
+    });
+  }, [selectAllMatching, products]);
+
+  const handleSelectAllMatching = () => {
+    setSelectAllMatching(true);
+    setExcludedIds(new Set());
+    setSelectedIds(new Set());
+  };
+
+  const handleClearSelection = () => {
+    setSelectAllMatching(false);
+    setExcludedIds(new Set());
+    setSelectedIds(new Set());
+  };
+
+  const handleBulkStatus = useCallback(async (isActive: boolean) => {
+    if (selectedCount === 0) return;
+    const action = isActive ? "Activate" : "Deactivate";
+    if (!confirm(`${action} ${selectedCount} selected product(s)?`)) return;
+
+    try {
+      setBulkProcessing(true);
+      if (selectAllMatching) {
+        await api.bulkSetProductStatus({
+          isActive,
+          selectAllMatching: true,
+          filters: currentFilters,
+          excludeIds: Array.from(excludedIds),
+        });
+      } else {
+        await api.bulkSetProductStatus({
+          isActive,
+          productIds: Array.from(selectedIds),
+        });
+      }
+      handleClearSelection();
+      loadProducts();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : `Failed to ${action.toLowerCase()} products`);
+    } finally {
+      setBulkProcessing(false);
+    }
+  }, [selectAllMatching, excludedIds, selectedIds, selectedCount, loadProducts, currentFilters]);
+
   const stats = {
     total,
-    active:     products.filter(p => p.status === "active").length,
-    internal:   products.filter(p => !p.isSupplierProduct).length,
-    supplier:   products.filter(p => p.isSupplierProduct).length,
+    active: products.filter(p => p.status === "active").length,
+    internal: products.filter(p => !p.isSupplierProduct).length,
+    supplier: products.filter(p => p.isSupplierProduct).length,
     totalCodes: products
       .filter(p => !p.isSupplierProduct)
       .reduce((s, p) => s + (p.availableCodes ?? 0), 0),
   };
+
   return (
     <Dashboard>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="text-3xl font-bold text-gray-800 dark:text-white">Product Management</h2>
           <div className="flex gap-3">
+            <button onClick={() => setShowImageLibrary(true)} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+              Image Management
+            </button>
             <button onClick={() => setShowImportModal(true)} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">Import Excel</button>
             <button onClick={() => setShowCreateModal(true)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">Create Product</button>
           </div>
         </div>
+
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
@@ -229,6 +346,49 @@ export default function ProductsPage() {
 
         {error && <div className="p-4 bg-red-50 text-red-600 rounded-lg">{error}</div>}
 
+        {/* ── Selection banner ─────────────────────────────────────────── */}
+        {!selectAllMatching && allSelectedOnPage && total > products.length && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg px-4 py-2.5 text-sm text-blue-800 dark:text-blue-300 flex items-center justify-between">
+            <span>All {products.length} products on this page are selected.</span>
+            <button onClick={handleSelectAllMatching} className="font-medium underline hover:no-underline">
+              Select all {total} products matching current filters
+            </button>
+          </div>
+        )}
+
+        {selectedCount > 0 && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg px-4 py-3 flex items-center justify-between">
+            <span className="text-sm font-medium text-blue-800 dark:text-blue-300">
+              {selectAllMatching
+                ? `All ${selectedCount} products matching current filters selected`
+                : `${selectedCount} product${selectedCount > 1 ? "s" : ""} selected`}
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleBulkStatus(true)}
+                disabled={bulkProcessing}
+                className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+              >
+                Activate
+              </button>
+              <button
+                onClick={() => handleBulkStatus(false)}
+                disabled={bulkProcessing}
+                className="px-3 py-1.5 text-sm bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 transition-colors"
+              >
+                Deactivate
+              </button>
+              <button
+                onClick={handleClearSelection}
+                disabled={bulkProcessing}
+                className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="flex justify-center p-12"><div className="animate-spin w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full"></div></div>
         ) : (
@@ -241,10 +401,45 @@ export default function ProductsPage() {
             onViewCodes={setViewingCodesProduct}
             onViewImages={setViewingImagesProduct}
             onDelete={handleDelete}
+            isSelected={isSelected}
+            allSelectedOnPage={allSelectedOnPage}
+            someSelectedOnPage={someSelectedOnPage}
+            onToggleSelect={handleToggleSelect}
+            onToggleSelectAllOnPage={handleToggleSelectAllOnPage}
           />
+        )}
+
+        {!loading && products.length > 0 && (
+          <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg shadow px-4 py-3">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Showing <span className="font-medium">{(page - 1) * LIMIT + 1}</span>–
+              <span className="font-medium">{Math.min(page * LIMIT, total)}</span> of{" "}
+              <span className="font-medium">{total}</span> products
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-sm rounded-lg disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
+              >
+                Previous
+              </button>
+              <span className="text-sm text-gray-600 dark:text-gray-400 px-2">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-sm rounded-lg disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         )}
       </div>
 
+      {showImageLibrary && <ImageLibraryModal onClose={() => setShowImageLibrary(false)} />}
       {showImportModal && <ImportProductsModal onClose={() => setShowImportModal(false)} onComplete={() => { setShowImportModal(false); loadProducts(); }} />}
       {showCreateModal && (
         <CreateProductModal

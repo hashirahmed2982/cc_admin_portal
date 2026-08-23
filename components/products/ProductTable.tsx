@@ -9,6 +9,11 @@ interface ProductTableProps {
   onViewCodes: (product: Product) => void;
   onViewImages: (product: Product) => void;
   onDelete: (productId: string) => void;
+  isSelected: (productId: string) => boolean;
+  allSelectedOnPage: boolean;
+  someSelectedOnPage: boolean;
+  onToggleSelect: (productId: string) => void;
+  onToggleSelectAllOnPage: () => void;
 }
 
 export default function ProductTable({
@@ -20,6 +25,11 @@ export default function ProductTable({
   onViewCodes,
   onViewImages,
   onDelete,
+  isSelected,
+  allSelectedOnPage,
+  someSelectedOnPage,
+  onToggleSelect,
+  onToggleSelectAllOnPage,
 }: ProductTableProps) {
 
   const getStatusBadge = (status: string, product: Product) => {
@@ -28,7 +38,7 @@ export default function ProductTable({
     //   return "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400"; // out of stock display
     // }
     const styles: Record<string, string> = {
-      active:   "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400",
+      active: "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400",
       inactive: "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400",
     };
     return styles[status] || styles.inactive;
@@ -48,8 +58,8 @@ export default function ProductTable({
     const total = product.totalCodes ?? 0;
     if (total === 0 || avail === 0) return { label: "Out of Stock", color: "text-red-600 dark:text-red-400" };
     const pct = (avail / total) * 100;
-    if (pct < 10) return { label: "Critical",  color: "text-red-600 dark:text-red-400" };
-    if (pct < 25) return { label: "Low Stock",  color: "text-orange-600 dark:text-orange-400" };
+    if (pct < 10) return { label: "Critical", color: "text-red-600 dark:text-red-400" };
+    if (pct < 25) return { label: "Low Stock", color: "text-orange-600 dark:text-orange-400" };
     return { label: "In Stock", color: "text-green-600 dark:text-green-400" };
   };
 
@@ -76,8 +86,9 @@ export default function ProductTable({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {products.map((product) => {
           const stockLevel = getStockLevel(product);
+          const selected = isSelected(product.id);
           return (
-            <div key={product.id} className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden hover:shadow-lg transition-shadow">
+            <div key={product.id} className={`bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden hover:shadow-lg transition-shadow ${selected ? "ring-2 ring-blue-500" : ""}`}>
               {/* Image */}
               <div
                 className={`h-48 relative cursor-pointer ${product.isSupplierProduct
@@ -90,13 +101,20 @@ export default function ProductTable({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                   </svg>
                 </div>
+                <div className="absolute top-2 left-2 flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={selected}
+                    onChange={(e) => { e.stopPropagation(); onToggleSelect(product.id); }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-4 h-4 rounded cursor-pointer accent-blue-600"
+                  />
+                  <SourceBadge product={product} />
+                </div>
                 <div className="absolute top-2 right-2 flex gap-1">
                   <span className={`px-2 py-1 text-xs font-medium rounded ${getStatusBadge(product.status, product)}`}>
                     {getStatusLabel(product.status, product)}
                   </span>
-                </div>
-                <div className="absolute top-2 left-2">
-                  <SourceBadge product={product} />
                 </div>
                 <div className="absolute bottom-2 left-2">
                   <span className="px-2 py-1 text-xs font-medium bg-black bg-opacity-50 text-white rounded">
@@ -209,6 +227,15 @@ export default function ProductTable({
         <table className="w-full">
           <thead className="bg-gray-50 dark:bg-gray-700">
             <tr>
+              <th className="px-4 py-3 w-10">
+                <input
+                  type="checkbox"
+                  checked={allSelectedOnPage}
+                  ref={(el) => { if (el) el.indeterminate = someSelectedOnPage; }}
+                  onChange={onToggleSelectAllOnPage}
+                  className="w-4 h-4 rounded cursor-pointer accent-blue-600"
+                />
+              </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Product</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Type</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Category / Brand</th>
@@ -221,18 +248,28 @@ export default function ProductTable({
           <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
             {products.map((product) => {
               const stockLevel = getStockLevel(product);
+              const selected = isSelected(product.id);
               return (
-                <tr key={product.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                <tr key={product.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${selected ? "bg-blue-50 dark:bg-blue-900/10" : ""}`}>
+
+                  {/* Checkbox */}
+                  <td className="px-4 py-4">
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      onChange={() => onToggleSelect(product.id)}
+                      className="w-4 h-4 rounded cursor-pointer accent-blue-600"
+                    />
+                  </td>
 
                   {/* Product */}
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div
-                        className={`w-12 h-12 rounded flex items-center justify-center cursor-pointer flex-shrink-0 ${
-                          product.isSupplierProduct
+                        className={`w-12 h-12 rounded flex items-center justify-center cursor-pointer flex-shrink-0 ${product.isSupplierProduct
                             ? "bg-gradient-to-br from-orange-400 to-rose-600"
                             : "bg-gradient-to-br from-blue-500 to-purple-600"
-                        }`}
+                          }`}
                         onClick={() => onViewImages(product)}
                       >
                         <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -240,7 +277,12 @@ export default function ProductTable({
                         </svg>
                       </div>
                       <div className="min-w-0">
-                        <div className="font-medium text-gray-900 dark:text-white truncate max-w-[200px]">{product.name}</div>
+                        <div
+                          className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2"
+                          title={product.name}
+                        >
+                          {product.name}
+                        </div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">{product.id}</div>
                       </div>
                     </div>
