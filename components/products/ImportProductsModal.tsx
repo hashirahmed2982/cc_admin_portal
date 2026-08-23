@@ -33,7 +33,8 @@ interface RawExcelRow {
   price?: string | number;
   description?: string | number;
   redemptionInstructions?: string | number;
-  [key: string]: string | number | undefined;
+  images?: string[];
+  [key: string]: string | number | string[] | undefined;
 }
 
 interface ImportLogEntry {
@@ -71,17 +72,33 @@ export default function ImportProductsModal({ onClose, onComplete }: ImportProdu
       }
       
       // Sanitize and trim data to prevent database errors
-      const sanitizedData: ParsedProduct[] = rawData.map((row) => ({
-        name: row.name ? String(row.name).substring(0, 255) : "Unknown Product",
-        productType: row.productType ? String(row.productType).substring(0, 100) : "",
-        category: row.category ? String(row.category).substring(0, 50) : "",
-        currency: row.currency ? String(row.currency).substring(0, 10) : "",
-        brand: row.brand ? String(row.brand).substring(0, 100) : (row.productType ? String(row.productType).substring(0, 100) : ""),
-        price: isNaN(Number(row.price)) ? 0 : Number(row.price),
-        description: row.description ? String(row.description) : "",
-        redemptionInstructions: row.redemptionInstructions ? String(row.redemptionInstructions) : "",
-        images: []
-      }));
+      const sanitizedData: ParsedProduct[] = rawData.map((row) => {
+        // Images come back from the backend as either a pre-split array,
+        // or (defensively, in case the backend hasn't split it) a raw
+        // comma-separated string. Handle both so multiple URLs pasted
+        // into a single Excel cell ("url1, url2, url3") work correctly.
+        let images: string[] = [];
+        if (Array.isArray(row.images)) {
+          images = row.images.map(s => String(s).trim()).filter(Boolean);
+        } else if (typeof row.images === "string" && row.images) {
+          images = String(row.images)
+            .split(",")
+            .map(s => s.trim())
+            .filter(Boolean);
+        }
+
+        return {
+          name: row.name ? String(row.name).substring(0, 255) : "Unknown Product",
+          productType: row.productType ? String(row.productType).substring(0, 100) : "",
+          category: row.category ? String(row.category).substring(0, 50) : "",
+          currency: row.currency ? String(row.currency).substring(0, 10) : "",
+          brand: row.brand ? String(row.brand).substring(0, 100) : (row.productType ? String(row.productType).substring(0, 100) : ""),
+          price: isNaN(Number(row.price)) ? 0 : Number(row.price),
+          description: row.description ? String(row.description) : "",
+          redemptionInstructions: row.redemptionInstructions ? String(row.redemptionInstructions) : "",
+          images,
+        };
+      });
 
       setParsedRows(sanitizedData);
       setStage("preview");
@@ -229,6 +246,7 @@ export default function ImportProductsModal({ onClose, onComplete }: ImportProdu
                     { col: "Brand",        note: "Optional" },
                     { col: "Price",        note: "Optional — defaults to 0" },
                     { col: "Description",  note: "Optional" },
+                    { col: "Image",        note: "Optional — one or more URLs, comma-separated" },
                   ].map(({ col, note }) => (
                     <div key={col} className="flex items-start gap-1.5">
                       <span className="text-xs font-mono bg-blue-100 dark:bg-blue-800/40 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded mt-0.5">{col}</span>
@@ -238,6 +256,7 @@ export default function ImportProductsModal({ onClose, onComplete }: ImportProdu
                 </div>
                 <p className="text-xs text-blue-600 dark:text-blue-400 mt-3">
                   Column names are matched case-insensitively. Extra columns are ignored. Header row is auto-detected.
+                  For multiple images in one product, separate URLs with a comma in the Image cell (e.g. <span className="font-mono">url1, url2</span>).
                 </p>
               </div>
 
@@ -321,7 +340,7 @@ export default function ImportProductsModal({ onClose, onComplete }: ImportProdu
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
                       <tr>
-                        {["#", "Product Name", "Category", "Brand / Type", "Price", "Currency"].map(h => (
+                        {["#", "Product Name", "Category", "Brand / Type", "Price", "Currency", "Image"].map(h => (
                           <th key={h} className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">{h}</th>
                         ))}
                       </tr>
@@ -344,6 +363,28 @@ export default function ImportProductsModal({ onClose, onComplete }: ImportProdu
                             }
                           </td>
                           <td className="px-3 py-2 text-gray-500 dark:text-gray-400 text-xs">{p.currency || "—"}</td>
+                          <td className="px-3 py-2">
+                            {p.images.length > 0 ? (
+                              <div className="flex items-center -space-x-2" title={p.images.join(", ")}>
+                                {p.images.slice(0, 3).map((url, idx) => (
+                                  <img
+                                    key={idx}
+                                    src={url}
+                                    alt=""
+                                    className="w-8 h-8 object-cover rounded border-2 border-white dark:border-gray-800 bg-gray-100 dark:bg-gray-600"
+                                    onError={(e) => { (e.target as HTMLImageElement).style.opacity = "0.15"; }}
+                                  />
+                                ))}
+                                {p.images.length > 3 && (
+                                  <span className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 text-[10px] flex items-center justify-center text-gray-600 dark:text-gray-300 border-2 border-white dark:border-gray-800">
+                                    +{p.images.length - 3}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-gray-300 dark:text-gray-600 italic text-xs">—</span>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
