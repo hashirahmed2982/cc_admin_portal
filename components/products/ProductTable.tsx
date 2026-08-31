@@ -2,6 +2,7 @@ import { Product } from "@/app/products/page";
 
 interface ProductTableProps {
   products: Product[];
+  downSuppliers?: Set<string>;
   viewMode: "table" | "grid";
   onEdit: (product: Product) => void;
   onToggleStatus: (productId: string) => void;
@@ -18,6 +19,7 @@ interface ProductTableProps {
 
 export default function ProductTable({
   products,
+  downSuppliers = new Set(),
   viewMode,
   onEdit,
   onToggleStatus,
@@ -65,11 +67,18 @@ export default function ProductTable({
 
   const SourceBadge = ({ product }: { product: Product }) =>
     product.isSupplierProduct ? (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400">
-        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-        </svg>
-        Supplier
+      <span className="inline-flex items-center gap-1 flex-wrap">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400">
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          {product.source && product.source !== "internal" ? product.source : "Supplier"}
+        </span>
+        {product.source && downSuppliers.has(product.source) && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400" title="Supplier integration is currently down — orders for this product may fail until it recovers">
+            Temporarily Unavailable
+          </span>
+        )}
       </span>
     ) : (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400">

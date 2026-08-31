@@ -28,7 +28,7 @@ export interface Product {
   availableCodes: number | null;
   soldCodes: number | null;
   unlimitedStock: boolean;
-  source: "internal" | "carrypin" | string;
+  source: "internal" | "wgcards" | "gift2games" | string;
   isSupplierProduct: boolean;
   supplierName: string | null;
   supplierRef: string | null;
@@ -47,7 +47,8 @@ export default function ProductsPage() {
   const [error, setError] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterCategory, setFilterCategory] = useState("all");
-  const [filterSource, setFilterSource] = useState<"all" | "internal" | "carrypin">("all");
+  const [filterSource, setFilterSource] = useState<"all" | "internal" | "wgcards" | "gift2games">("all");
+  const [downSuppliers, setDownSuppliers] = useState<Set<string>>(new Set());
   const [categories, setCategories] = useState<string[]>([]);
   const [brands, setBrands] = useState<string[]>([]);
   const [page, setPage] = useState(1);
@@ -79,7 +80,7 @@ export default function ProductsPage() {
     search: searchTerm || undefined,
     category: filterCategory !== "all" ? filterCategory : undefined,
     status: filterStatus !== "all" ? filterStatus : undefined,
-    source: filterSource !== "all" ? (filterSource as "internal" | "carrypin") : undefined,
+    source: filterSource !== "all" ? (filterSource as "internal" | "wgcards" | "gift2games") : undefined,
   };
 
   const loadProducts = useCallback(async () => {
@@ -134,6 +135,24 @@ export default function ProductsPage() {
       } catch { /* non-critical */ }
     };
     loadMeta();
+  }, []);
+
+  // Purely decorative ("temporarily unavailable" badge on supplier-sourced
+  // products) — fetched separately from the products list itself so a
+  // 403 here (a non-admin viewer) never blocks the page, it just means no
+  // badge shows.
+  useEffect(() => {
+    const loadSupplierStatus = async () => {
+      try {
+        const result = await api.getSuppliers();
+        const down = new Set<string>(
+          (result.data || []).filter((s: { integrationStatus: string }) => s.integrationStatus === "down")
+            .map((s: { supplierName: string }) => s.supplierName)
+        );
+        setDownSuppliers(down);
+      } catch { /* non-critical, and expected for non-admin viewers */ }
+    };
+    loadSupplierStatus();
   }, []);
 
   // Filters/search changing invalidates any selection — a different result
@@ -328,6 +347,12 @@ export default function ProductsPage() {
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </select>
+            <select value={filterSource} onChange={(e) => setFilterSource(e.target.value as typeof filterSource)} className="px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white">
+              <option value="all">All Sources</option>
+              <option value="internal">Internal</option>
+              <option value="wgcards">WgCards</option>
+              <option value="gift2games">Gift2Games</option>
+            </select>
           </div>
 
           <div className="relative w-full md:w-80">
@@ -394,6 +419,7 @@ export default function ProductsPage() {
         ) : (
           <ProductTable
             products={products}
+            downSuppliers={downSuppliers}
             viewMode="table"
             onEdit={setEditingProduct}
             onToggleStatus={handleToggleStatus}

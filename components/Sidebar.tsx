@@ -64,6 +64,16 @@ const menuItems = [
       </svg>
     ),
   },
+  {
+    name: "Suppliers",
+    href: "/suppliers",
+    adminOnly: true,
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14l-1 12H6L5 8zM8 8V6a4 4 0 118 0v2" />
+      </svg>
+    ),
+  },
   // {
   //   name: "Settings",
   //   href: "/settings",
@@ -99,7 +109,9 @@ const initials = user?.full_name ? getInitials(user.full_name) : "?";
           </div>
 
           <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-            {menuItems.map((item) => {
+            {menuItems
+              .filter((item) => !item.adminOnly || ["admin", "super_admin"].includes(user?.user_type || ""))
+              .map((item) => {
               const isActive = pathname === item.href;
               return (
                 <Link

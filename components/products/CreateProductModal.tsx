@@ -45,7 +45,7 @@ export default function CreateProductModal({
   // ─── Supplier-only fields ──────────────────────────────────────────────────
   const [costPrice, setCostPrice] = useState(initialData?.costPrice?.toString() || "");
   const [faceValue, setFaceValue] = useState("");
-  const [supplierName, setSupplierName] = useState(initialData?.supplierName || "carrypin");
+  const [supplierName, setSupplierName] = useState(initialData?.supplierName || "wgcards");
   const [supplierRef, setSupplierRef] = useState(initialData?.supplierRef || "");
   const [supplierSkuRef, setSupplierSkuRef] = useState(initialData?.supplierSkuRef || "");
   const [realtimePrice, setRealtimePrice] = useState(initialData?.realtimePrice ?? false);
@@ -210,7 +210,7 @@ export default function CreateProductModal({
                   <div>
                     <p className="font-semibold text-gray-900 dark:text-white text-sm">Supplier / Real-time</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">
-                      Codes fulfilled live via supplier API (e.g. CarryPin). No stored inventory.
+                      Codes fulfilled live via supplier API (e.g. WgCards). No stored inventory.
                     </p>
                   </div>
                   {productType === "supplier" && (
@@ -414,7 +414,7 @@ export default function CreateProductModal({
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Supplier *</label>
                   <select value={supplierName} onChange={e => setSupplierName(e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="carrypin">CarryPin</option>
+                    <option value="wgcards">WgCards</option>
                     <option value="other">Other</option>
                   </select>
                 </div>

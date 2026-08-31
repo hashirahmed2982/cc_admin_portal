@@ -413,11 +413,11 @@ class ApiService {
   // PRODUCTS
   // ============================================
 
-  /** List products — optional filter by source='internal'|'carrypin' */
+  /** List products — optional filter by source='internal'|'wgcards'|'gift2games' */
   async getProducts(f?: {
     page?: number; limit?: number; search?: string;
     category?: string; brand?: string; status?: string;
-    source?: 'internal' | 'carrypin';
+    source?: 'internal' | 'wgcards' | 'gift2games';
   }) {
     const p = new URLSearchParams();
     if (f?.page) p.append('page', String(f.page));
@@ -555,6 +555,46 @@ class ApiService {
       method: 'PUT',
       body: JSON.stringify({ name: data.name, email: data.email }),
     });
+  }
+
+  // ============================================
+  // SUPPLIERS (WgCards / Gift2Games integration)
+  // ============================================
+
+  async getSuppliers() {
+    return this.request('/admin/suppliers');
+  }
+
+  async updateSupplierCredentials(name: string, data: {
+    appId: string; accountId: string; appKey: string; apiBaseUrl: string; lowBalanceThreshold?: number;
+  }) {
+    return this.request(`/admin/suppliers/${name}/credentials`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getSupplierLogs(name: string, f?: {
+    statusCode?: number; errorsOnly?: boolean; page?: number; limit?: number;
+  }) {
+    const p = new URLSearchParams();
+    if (f?.statusCode !== undefined) p.append('statusCode', String(f.statusCode));
+    if (f?.errorsOnly) p.append('errorsOnly', 'true');
+    if (f?.page) p.append('page', String(f.page));
+    if (f?.limit) p.append('limit', String(f.limit));
+    return this.request(`/admin/suppliers/${name}/logs${p.toString() ? '?' + p : ''}`);
+  }
+
+  async getSupplierTopups(name: string, f?: { status?: string; page?: number; limit?: number }) {
+    const p = new URLSearchParams();
+    if (f?.status) p.append('status', f.status);
+    if (f?.page) p.append('page', String(f.page));
+    if (f?.limit) p.append('limit', String(f.limit));
+    return this.request(`/admin/suppliers/${name}/topups${p.toString() ? '?' + p : ''}`);
+  }
+
+  async getCronStatus() {
+    return this.request('/admin/cron-status');
   }
 }
 
