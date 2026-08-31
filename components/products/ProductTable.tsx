@@ -1,5 +1,10 @@
 import { Product } from "@/app/products/page";
 
+// WgCards product type enum — only 5 (Direct Top-Up) needs special
+// handling in this admin panel today; see wgcardsFulfillment.js's
+// requires_direct_topup_flow bail-out in cc_backend for why.
+const DIRECT_TOPUP_SPU_TYPE = 5;
+
 interface ProductTableProps {
   products: Product[];
   downSuppliers?: Set<string>;
@@ -77,6 +82,25 @@ export default function ProductTable({
         {product.source && downSuppliers.has(product.source) && (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400" title="Supplier integration is currently down — orders for this product may fail until it recovers">
             Temporarily Unavailable
+          </span>
+        )}
+        {product.spuType === DIRECT_TOPUP_SPU_TYPE && (
+          <span
+            className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400"
+            title="Direct Top-Up product — credits a customer account directly (player ID/phone/etc), not a code. Do NOT sell through the regular Buy button — the regular order flow will silently fail to fulfill it and still debit the wallet. Needs the Direct Top-Up purchase flow instead."
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            Direct Top-Up
+          </span>
+        )}
+        {product.isCustomValue && (
+          <span
+            className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400"
+            title="Custom-value SKU — the regular checkout has no field to capture a chosen face value yet; ordering this through the normal flow is currently unsupported"
+          >
+            Custom Value
           </span>
         )}
       </span>

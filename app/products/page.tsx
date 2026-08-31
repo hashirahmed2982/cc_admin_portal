@@ -30,6 +30,12 @@ export interface Product {
   unlimitedStock: boolean;
   source: "internal" | "wgcards" | "gift2games" | string;
   isSupplierProduct: boolean;
+  // spuType 5 = WgCards "Direct Top-Up" — cannot be sold through the
+  // regular Buy button at all (no code, credits an account directly and
+  // needs dynamic fields like player ID). null for internal products and
+  // suppliers that don't expose this concept.
+  spuType: number | null;
+  isCustomValue: boolean;
   supplierName: string | null;
   supplierRef: string | null;
   supplierSkuRef: string | null;
