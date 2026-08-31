@@ -74,7 +74,7 @@ export default function TopupQueueTable({
                     <div>{t.userEmail}</div>
                     <div className="text-xs text-gray-400">{t.product_name}{t.target_account ? ` · ${t.target_account}` : ""}</div>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">{t.amount.toFixed(2)} {t.currency}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">{Number(t.amount).toFixed(2)} {t.currency}</td>
                   <td className="px-6 py-4">
                     <span className={`px-2 py-1 text-xs font-medium rounded ${STATUS_STYLES[t.status] || ""}`}>{t.status}</span>
                     {stuck && <div className="text-xs text-orange-600 dark:text-orange-400 mt-1">past reconciler window — check logs</div>}

@@ -21,9 +21,13 @@ function timeAgo(iso: string | null): string {
 
 export default function SupplierHealthCard({ supplier, isSuperAdmin, onEditCredentials }: SupplierHealthCardProps) {
   const isDown = supplier.integrationStatus === "down";
+  // Defensive Number() coercion — the API is expected to send these as
+  // numbers, but a DECIMAL column can arrive as a string depending on the
+  // driver config, and this crashed the page once already when it did.
+  const balance = supplier.balance != null ? Number(supplier.balance) : null;
+  const lowBalanceThreshold = supplier.lowBalanceThreshold != null ? Number(supplier.lowBalanceThreshold) : null;
   const isLowBalance =
-    isSuperAdmin && supplier.lowBalanceThreshold != null && supplier.balance != null &&
-    supplier.balance < supplier.lowBalanceThreshold;
+    isSuperAdmin && lowBalanceThreshold != null && balance != null && balance < lowBalanceThreshold;
 
   return (
     <div className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border overflow-hidden ${
@@ -70,11 +74,11 @@ export default function SupplierHealthCard({ supplier, isSuperAdmin, onEditCrede
               {isLowBalance && <span className="text-xs font-medium text-orange-600 dark:text-orange-400">Low balance</span>}
             </div>
             <p className="text-lg font-bold text-gray-900 dark:text-white mt-1">
-              {supplier.balance != null ? `${supplier.balance.toFixed(2)} ${supplier.balanceCurrency || ""}` : "—"}
+              {balance != null ? `${balance.toFixed(2)} ${supplier.balanceCurrency || ""}` : "—"}
             </p>
             <p className="text-xs text-gray-400 mt-0.5">
               Checked {timeAgo(supplier.balanceCheckedAt)}
-              {supplier.lowBalanceThreshold != null ? ` · threshold ${supplier.lowBalanceThreshold}` : ""}
+              {lowBalanceThreshold != null ? ` · threshold ${lowBalanceThreshold}` : ""}
             </p>
           </div>
         )}
