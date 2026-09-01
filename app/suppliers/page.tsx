@@ -24,6 +24,7 @@ export default function SuppliersPage() {
   const [error, setError] = useState<string | null>(null);
   const [editingSupplier, setEditingSupplier] = useState<SupplierHealth | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [togglingSupplier, setTogglingSupplier] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<Tab>("activity");
   const [selectedSupplier, setSelectedSupplier] = useState("wgcards");
@@ -60,6 +61,19 @@ export default function SuppliersPage() {
   }, []);
 
   useEffect(() => { loadSuppliers(); }, [loadSuppliers]);
+
+  const handleToggleActive = async (supplier: SupplierHealth) => {
+    setTogglingSupplier(supplier.supplierName);
+    try {
+      await api.setSupplierActive(supplier.supplierName, !supplier.isActive);
+      setSuccessMsg(`${supplier.supplierName} ${supplier.isActive ? "disabled" : "enabled"}`);
+      await loadSuppliers();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to update supplier status");
+    } finally {
+      setTogglingSupplier(null);
+    }
+  };
 
   const loadLogs = useCallback(async () => {
     try {
@@ -144,6 +158,8 @@ export default function SuppliersPage() {
                 supplier={s}
                 isSuperAdmin={isSuperAdmin}
                 onEditCredentials={() => setEditingSupplier(s)}
+                onToggleActive={() => handleToggleActive(s)}
+                togglingActive={togglingSupplier === s.supplierName}
               />
             ))}
           </div>

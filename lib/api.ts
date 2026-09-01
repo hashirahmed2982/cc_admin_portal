@@ -574,6 +574,13 @@ class ApiService {
     });
   }
 
+  async setSupplierActive(name: string, isActive: boolean) {
+    return this.request(`/admin/suppliers/${name}/active`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isActive }),
+    });
+  }
+
   async getSupplierLogs(name: string, f?: {
     statusCode?: number; errorsOnly?: boolean; page?: number; limit?: number;
   }) {

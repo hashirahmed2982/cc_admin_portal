@@ -1,7 +1,7 @@
 // components/orders/OrderDetailModal.tsx
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import type { Order, OrderItem } from "@/types/order.types";
 import { OrderStatusBadge, fmtDate, isCompletable, isCancellable } from "@/utils/order.utils";
 
@@ -214,11 +214,13 @@ function MetaCell({ label, children }: { label: string; children: React.ReactNod
 }
 
 function ItemsTable({ items }: { items: OrderItem[] }) {
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+
   return (
     <table className="w-full text-sm">
       <thead>
         <tr className="border-b border-gray-200 dark:border-gray-700">
-          {["Product", "Ordered", "Delivered", "Pending", "Unit Price", "Status"].map(h => (
+          {["Product", "Ordered", "Delivered", "Pending", "Unit Price", "Status", "Supplier"].map(h => (
             <th key={h} className="py-2 pr-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
               {h}
             </th>
@@ -226,30 +228,107 @@ function ItemsTable({ items }: { items: OrderItem[] }) {
         </tr>
       </thead>
       <tbody>
-        {items.map((item, i) => (
-          <tr key={`${item.orderDetailId}-${i}`} className="border-b border-gray-100 dark:border-gray-700/60">
-            <td className="py-3 pr-4 font-medium text-gray-900 dark:text-white">
-              {item.productName}
-            </td>
-            <td className="py-3 pr-4 text-gray-600 dark:text-gray-400">{item.quantity}</td>
-            <td className="py-3 pr-4">
-              <span className="text-green-600 dark:text-green-400 font-medium">{item.deliveredQty}</span>
-            </td>
-            <td className="py-3 pr-4">
-              {item.pendingQty > 0
-                ? <span className="text-orange-600 dark:text-orange-400 font-medium">{item.pendingQty}</span>
-                : <span className="text-gray-400 dark:text-gray-600">—</span>
-              }
-            </td>
-            <td className="py-3 pr-4 text-gray-600 dark:text-gray-400">
-              ${item.unitPrice.toFixed(2)}
-            </td>
-            <td className="py-3">
-              <OrderStatusBadge status={item.deliveryStatus} />
-            </td>
-          </tr>
-        ))}
+        {items.map((item, i) => {
+          const hasTrail = item.fulfillmentSupplier || item.fulfillmentAttempts.length > 0 || item.pendingReason;
+          const isExpanded = expandedId === item.orderDetailId;
+          return (
+            <Fragment key={`${item.orderDetailId}-${i}`}>
+              <tr
+                className={`border-b border-gray-100 dark:border-gray-700/60 ${hasTrail ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40" : ""}`}
+                onClick={() => hasTrail && setExpandedId(isExpanded ? null : item.orderDetailId)}
+              >
+                <td className="py-3 pr-4 font-medium text-gray-900 dark:text-white">
+                  {item.productName}
+                </td>
+                <td className="py-3 pr-4 text-gray-600 dark:text-gray-400">{item.quantity}</td>
+                <td className="py-3 pr-4">
+                  <span className="text-green-600 dark:text-green-400 font-medium">{item.deliveredQty}</span>
+                </td>
+                <td className="py-3 pr-4">
+                  {item.pendingQty > 0
+                    ? <span className="text-orange-600 dark:text-orange-400 font-medium">{item.pendingQty}</span>
+                    : <span className="text-gray-400 dark:text-gray-600">—</span>
+                  }
+                </td>
+                <td className="py-3 pr-4 text-gray-600 dark:text-gray-400">
+                  ${item.unitPrice.toFixed(2)}
+                </td>
+                <td className="py-3">
+                  <OrderStatusBadge status={item.deliveryStatus} />
+                </td>
+                <td className="py-3 pr-4">
+                  {item.fulfillmentSupplier ? (
+                    <span className="capitalize text-gray-700 dark:text-gray-300">{item.fulfillmentSupplier}</span>
+                  ) : hasTrail ? (
+                    <span className="text-orange-600 dark:text-orange-400 text-xs">attempted, none succeeded</span>
+                  ) : (
+                    <span className="text-gray-400 dark:text-gray-600">—</span>
+                  )}
+                  {hasTrail && (
+                    <span className="ml-1 text-xs text-blue-600 dark:text-blue-400">{isExpanded ? "▲ hide" : "▼ details"}</span>
+                  )}
+                </td>
+              </tr>
+              {isExpanded && (
+                <tr className="bg-gray-50 dark:bg-gray-900/40 border-b border-gray-100 dark:border-gray-700/60">
+                  <td colSpan={7} className="py-3 px-4">
+                    <FulfillmentTrail item={item} />
+                  </td>
+                </tr>
+              )}
+            </Fragment>
+          );
+        })}
       </tbody>
     </table>
+  );
+}
+
+function FulfillmentTrail({ item }: { item: OrderItem }) {
+  return (
+    <div className="text-xs space-y-2">
+      <div className="flex flex-wrap gap-x-6 gap-y-1 text-gray-600 dark:text-gray-400">
+        {item.pendingReason && (
+          <div><span className="font-medium text-gray-700 dark:text-gray-300">Stuck reason:</span> {item.pendingReason}</div>
+        )}
+        {item.supplierOrderId && (
+          <div><span className="font-medium text-gray-700 dark:text-gray-300">Supplier order ID:</span> <span className="font-mono">{item.supplierOrderId}</span></div>
+        )}
+        {item.lastPolledAt && (
+          <div><span className="font-medium text-gray-700 dark:text-gray-300">Last polled:</span> {new Date(item.lastPolledAt).toLocaleString()}</div>
+        )}
+      </div>
+      {item.fulfillmentAttempts.length > 0 && (
+        <div>
+          <p className="font-medium text-gray-700 dark:text-gray-300 mb-1">Supplier attempt history (§10 — every supplier tried, cheapest first):</p>
+          <table className="w-full">
+            <thead>
+              <tr className="text-gray-500 dark:text-gray-400">
+                <th className="text-left font-medium pr-4 py-1">Supplier</th>
+                <th className="text-left font-medium pr-4 py-1">Result</th>
+                <th className="text-left font-medium pr-4 py-1">Reason</th>
+                <th className="text-left font-medium pr-4 py-1">When</th>
+                <th className="text-left font-medium py-1">Reference</th>
+              </tr>
+            </thead>
+            <tbody>
+              {item.fulfillmentAttempts.map((a, idx) => (
+                <tr key={idx} className="border-t border-gray-200 dark:border-gray-700">
+                  <td className="capitalize pr-4 py-1 text-gray-800 dark:text-gray-200">{a.supplier}</td>
+                  <td className="pr-4 py-1">
+                    <span className={a.result === "success" ? "text-green-600 dark:text-green-400 font-medium" : "text-red-600 dark:text-red-400 font-medium"}>
+                      {a.result}
+                    </span>
+                  </td>
+                  <td className="pr-4 py-1 text-gray-600 dark:text-gray-400">{a.reason || "—"}</td>
+                  <td className="pr-4 py-1 text-gray-500 dark:text-gray-500">{new Date(a.attemptedAt).toLocaleString()}</td>
+                  <td className="py-1 font-mono text-gray-500 dark:text-gray-500">{a.reference ? a.reference.slice(0, 12) + "…" : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }

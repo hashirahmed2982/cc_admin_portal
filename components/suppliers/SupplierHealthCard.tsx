@@ -6,6 +6,8 @@ interface SupplierHealthCardProps {
   supplier: SupplierHealth;
   isSuperAdmin: boolean;
   onEditCredentials: () => void;
+  onToggleActive: () => void;
+  togglingActive: boolean;
 }
 
 function timeAgo(iso: string | null): string {
@@ -19,8 +21,9 @@ function timeAgo(iso: string | null): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-export default function SupplierHealthCard({ supplier, isSuperAdmin, onEditCredentials }: SupplierHealthCardProps) {
+export default function SupplierHealthCard({ supplier, isSuperAdmin, onEditCredentials, onToggleActive, togglingActive }: SupplierHealthCardProps) {
   const isDown = supplier.integrationStatus === "down";
+  const isDisabled = !supplier.isActive;
   // Defensive Number() coercion — the API is expected to send these as
   // numbers, but a DECIMAL column can arrive as a string depending on the
   // driver config, and this crashed the page once already when it did.
@@ -31,7 +34,7 @@ export default function SupplierHealthCard({ supplier, isSuperAdmin, onEditCrede
 
   return (
     <div className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border overflow-hidden ${
-      isDown ? "border-red-300 dark:border-red-800" : "border-gray-200 dark:border-gray-700"
+      isDisabled ? "border-gray-300 dark:border-gray-600" : isDown ? "border-red-300 dark:border-red-800" : "border-gray-200 dark:border-gray-700"
     }`}>
       <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between">
         <div>
@@ -39,17 +42,24 @@ export default function SupplierHealthCard({ supplier, isSuperAdmin, onEditCrede
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate max-w-[220px]">{supplier.apiBaseUrl}</p>
         </div>
         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full ${
-          isDown
-            ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-            : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+          isDisabled
+            ? "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300"
+            : isDown
+              ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+              : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
         }`}>
-          <span className={`w-1.5 h-1.5 rounded-full ${isDown ? "bg-red-500" : "bg-green-500"}`} />
-          {isDown ? "Down" : "Healthy"}
+          <span className={`w-1.5 h-1.5 rounded-full ${isDisabled ? "bg-gray-500" : isDown ? "bg-red-500" : "bg-green-500"}`} />
+          {isDisabled ? "Disabled" : isDown ? "Down" : "Healthy"}
         </span>
       </div>
 
       <div className="p-6 space-y-3">
-        {isDown && (
+        {isDisabled && (
+          <div className="bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg p-3 text-sm text-gray-700 dark:text-gray-300">
+            Turned off by an admin — no cron jobs run for this supplier and its products are hidden as unavailable, same as an outage, until re-enabled.
+          </div>
+        )}
+        {!isDisabled && isDown && (
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-300">
             Products from this supplier are temporarily hidden as unavailable ({supplier.consecutiveFailures} consecutive failures{supplier.downSince ? `, since ${timeAgo(supplier.downSince)}` : ""}).
           </div>
@@ -84,12 +94,25 @@ export default function SupplierHealthCard({ supplier, isSuperAdmin, onEditCrede
         )}
 
         {isSuperAdmin && (
-          <button
-            onClick={onEditCredentials}
-            className="w-full px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-          >
-            Replace Credentials
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={onEditCredentials}
+              className="flex-1 px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+            >
+              Replace Credentials
+            </button>
+            <button
+              onClick={onToggleActive}
+              disabled={togglingActive}
+              className={`flex-1 px-4 py-2 text-sm font-medium border rounded-lg transition-colors disabled:opacity-50 ${
+                isDisabled
+                  ? "text-green-700 dark:text-green-400 border-green-200 dark:border-green-800 hover:bg-green-50 dark:hover:bg-green-900/20"
+                  : "text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20"
+              }`}
+            >
+              {togglingActive ? "Saving..." : isDisabled ? "Enable Supplier" : "Disable Supplier"}
+            </button>
+          </div>
         )}
       </div>
     </div>

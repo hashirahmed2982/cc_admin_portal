@@ -1,5 +1,13 @@
 // types/order.types.ts
 
+export interface FulfillmentAttempt {
+  supplier:    string;
+  reference:   string | null;
+  attemptedAt: string;
+  result:      "success" | "failed";
+  reason:      string | null;
+}
+
 export interface OrderItem {
   orderDetailId:  number;
   productId:      number;
@@ -10,6 +18,14 @@ export interface OrderItem {
   pendingQty:     number;
   unitPrice:      number;
   deliveryStatus: "pending" | "partial" | "completed" | "failed";
+  // §10.7 fulfillment audit trail — which supplier this line went to,
+  // why it's stuck (if it is), and every supplier tried along the way.
+  fulfillmentSupplier:  string | null;
+  pendingReason:        string | null;
+  supplierOrderId:      string | null;
+  supplierServiceOrder: string | null;
+  lastPolledAt:         string | null;
+  fulfillmentAttempts:  FulfillmentAttempt[];
 }
 
 export interface Order {
@@ -53,6 +69,12 @@ export function mapOrderItem(i: any): OrderItem {
     pendingQty:     parseInt(i.pendingQty ?? i.pending_qty ?? (qty - delivered)),
     unitPrice:      parseFloat(i.unitPrice ?? i.unit_price ?? 0),
     deliveryStatus: i.deliveryStatus ?? i.item_delivery_status ?? "pending",
+    fulfillmentSupplier:  i.fulfillmentSupplier  ?? i.fulfillment_supplier  ?? null,
+    pendingReason:        i.pendingReason        ?? i.pending_reason        ?? null,
+    supplierOrderId:      i.supplierOrderId      ?? i.wgcards_order_id      ?? null,
+    supplierServiceOrder: i.supplierServiceOrder ?? i.wgcards_service_order ?? null,
+    lastPolledAt:         i.lastPolledAt         ?? i.last_polled_at        ?? null,
+    fulfillmentAttempts:  Array.isArray(i.fulfillmentAttempts) ? i.fulfillmentAttempts : [],
   };
 }
 
