@@ -15,6 +15,7 @@ interface ProductTableProps {
   onViewCodes: (product: Product) => void;
   onViewImages: (product: Product) => void;
   onDelete: (productId: string) => void;
+  onManageSuppliers: (product: Product) => void;
   isSelected: (productId: string) => boolean;
   allSelectedOnPage: boolean;
   someSelectedOnPage: boolean;
@@ -32,6 +33,7 @@ export default function ProductTable({
   onViewCodes,
   onViewImages,
   onDelete,
+  onManageSuppliers,
   isSelected,
   allSelectedOnPage,
   someSelectedOnPage,
@@ -217,17 +219,24 @@ export default function ProductTable({
                 )}
 
                 {/* Actions */}
-                <div className="grid grid-cols-2 gap-2 pt-2">
+                <div className={`grid ${product.isSupplierProduct ? "grid-cols-3" : "grid-cols-2"} gap-2 pt-2`}>
                   <button onClick={() => onEdit(product)}
                     className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                     Edit
                   </button>
                   {product.isSupplierProduct ? (
-                    <button disabled
-                      className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 rounded cursor-not-allowed"
-                      title="Supplier products use real-time fulfilment">
-                      Live Codes
-                    </button>
+                    <>
+                      <button disabled
+                        className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 rounded cursor-not-allowed"
+                        title="Supplier products use real-time fulfilment">
+                        Live Codes
+                      </button>
+                      <button onClick={() => onManageSuppliers(product)}
+                        className="px-3 py-2 text-sm border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-400 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                        title="View/manage which suppliers this product is linked to (Master Plan §10)">
+                        Suppliers
+                      </button>
+                    </>
                   ) : (
                     <button onClick={() => onUploadCodes(product)}
                       className="px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
@@ -419,6 +428,18 @@ export default function ProductTable({
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        </button>
+                      ) : (
+                        <span className="w-5 h-5" />
+                      )}
+
+                      {/* Manage supplier links — supplier products only (Master Plan §10) */}
+                      {product.isSupplierProduct ? (
+                        <button onClick={() => onManageSuppliers(product)}
+                          className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300" title="Manage Suppliers">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14l-1 12H6L5 8zM8 8V6a4 4 0 118 0v2" />
                           </svg>
                         </button>
                       ) : (

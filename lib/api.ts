@@ -637,6 +637,21 @@ class ApiService {
   async ignoreCatalogMatch(stagingId: number) {
     return this.request(`/admin/catalog-matching/${stagingId}/ignore`, { method: 'POST' });
   }
+
+  // ============================================
+  // SKU SUPPLIER LINKS (Master Plan §10 — per-product supplier control)
+  // ============================================
+
+  async getSkuLinks(productId: string | number) {
+    return this.request(`/admin/sku-links?productId=${productId}`);
+  }
+
+  async updateSkuLink(linkId: number, data: { isActive?: boolean; priorityOverride?: 'always_prefer' | 'never_use' | null }) {
+    return this.request(`/admin/sku-links/${linkId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
 }
 
 export const api = new ApiService();

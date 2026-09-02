@@ -36,6 +36,26 @@ export interface CronJobRun {
   updated_at: string;
 }
 
+// Master Plan §10 — one supplier's offer for one canonical SKU. The
+// dispatcher (supplierSelection.service.js) reads is_active/
+// admin_priority_override directly; this is the admin-facing view/control
+// of the same row.
+export interface SkuSupplierLink {
+  link_id: number;
+  sku_id: number;
+  sku_name: string;
+  supplier: string;
+  supplier_ref: string | null;
+  supplier_sku_ref: string;
+  cost_price: number;
+  cost_currency: string;
+  cost_price_base_currency: number | null;
+  stock_status: "in_stock" | "out_of_stock" | "unknown";
+  is_active: boolean | number;
+  admin_priority_override: "always_prefer" | "never_use" | null;
+  last_synced_at: string | null;
+}
+
 export interface TopupOrder {
   topup_order_id: number;
   order_reference: string;

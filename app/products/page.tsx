@@ -11,6 +11,7 @@ import ViewCodesModal from "@/components/products/ViewCodesModal";
 import ImportProductsModal from "@/components/products/ImportProductsModal";
 import ProductImageGallery from "@/components/products/ProductImageGallery";
 import ImageLibraryModal from "@/components/products/ImageLibraryModal";
+import SupplierLinksModal from "@/components/products/SupplierLinksModal";
 
 export interface Product {
   id: string;
@@ -68,6 +69,7 @@ export default function ProductsPage() {
   const [viewingCodesProduct, setViewingCodesProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [viewingImagesProduct, setViewingImagesProduct] = useState<Product | null>(null);
+  const [managingSuppliersProduct, setManagingSuppliersProduct] = useState<Product | null>(null);
   const [showImageLibrary, setShowImageLibrary] = useState(false);
 
   // ── Selection state ────────────────────────────────────────────────────
@@ -433,6 +435,7 @@ export default function ProductsPage() {
             onViewCodes={setViewingCodesProduct}
             onViewImages={setViewingImagesProduct}
             onDelete={handleDelete}
+            onManageSuppliers={setManagingSuppliersProduct}
             isSelected={isSelected}
             allSelectedOnPage={allSelectedOnPage}
             someSelectedOnPage={someSelectedOnPage}
@@ -495,6 +498,9 @@ export default function ProductsPage() {
       )}
       {uploadingProduct && <UploadCodesModal product={uploadingProduct} onClose={() => setUploadingProduct(null)} onSubmit={() => { setUploadingProduct(null); loadProducts(); }} />}
       {viewingCodesProduct && <ViewCodesModal product={viewingCodesProduct} onClose={() => setViewingCodesProduct(null)} />}
+      {managingSuppliersProduct && (
+        <SupplierLinksModal product={managingSuppliersProduct} onClose={() => setManagingSuppliersProduct(null)} />
+      )}
       {editingProduct && (
         <EditProductModal
           product={editingProduct}
