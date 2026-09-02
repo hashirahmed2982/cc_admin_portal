@@ -620,6 +620,15 @@ class ApiService {
     return this.request(`/admin/catalog-matching/${stagingId}`);
   }
 
+  // Manual fallback search across the canonical catalog — for when the
+  // auto-suggested matches (by brand/face-value/currency key) find nothing
+  // or suggest the wrong item.
+  async searchCatalogMatches(q: string, limit?: number) {
+    const p = new URLSearchParams({ q });
+    if (limit) p.append('limit', String(limit));
+    return this.request(`/admin/catalog-matching/search?${p}`);
+  }
+
   async linkCatalogMatch(stagingId: number, skuId: number) {
     return this.request(`/admin/catalog-matching/${stagingId}/link`, {
       method: 'POST',

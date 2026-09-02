@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
-import { StagingItemDetail } from "@/types/catalogMatching.types";
+import { StagingItemDetail, SuggestedMatch } from "@/types/catalogMatching.types";
 
 interface Props {
   stagingId: number;
@@ -21,12 +21,20 @@ export default function CatalogMatchReviewModal({ stagingId, onClose, onResolved
   const [sellingPrice, setSellingPrice] = useState("");
   const [category, setCategory] = useState("");
 
+  // Manual search fallback — for when the auto-suggested matches (by
+  // brand/face-value/currency key) find nothing or suggest the wrong item.
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SuggestedMatch[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       const result = await api.getCatalogMatchItem(stagingId);
       setItem(result.data);
+      setSearchQuery(result.data?.item_name || "");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load item");
     } finally {
@@ -35,6 +43,21 @@ export default function CatalogMatchReviewModal({ stagingId, onClose, onResolved
   }, [stagingId]);
 
   useEffect(() => { load(); }, [load]);
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    setSearching(true);
+    setSearchError(null);
+    try {
+      const result = await api.searchCatalogMatches(searchQuery.trim());
+      setSearchResults(result.data || []);
+    } catch (err: unknown) {
+      setSearchError(err instanceof Error ? err.message : "Search failed");
+    } finally {
+      setSearching(false);
+    }
+  };
 
   const handleLink = async (skuId: number) => {
     setActing(true);
@@ -145,6 +168,59 @@ export default function CatalogMatchReviewModal({ stagingId, onClose, onResolved
                     </div>
                   ))}
                 </div>
+              </section>
+
+              {/* Manual search — fallback for when the auto-suggested matches above find nothing, or the wrong thing */}
+              <section className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Search the catalog manually
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                  Use this if the suggestions above are empty or wrong — searches product name, brand, and SKU name.
+                </p>
+                <form onSubmit={handleSearch} className="flex gap-2 mb-3">
+                  <input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Product name..."
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                  />
+                  <button
+                    type="submit"
+                    disabled={searching || !searchQuery.trim()}
+                    className="px-4 py-2 text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50"
+                  >
+                    {searching ? "Searching..." : "Search"}
+                  </button>
+                </form>
+
+                {searchError && <p className="text-xs text-red-600 dark:text-red-400 mb-2">{searchError}</p>}
+
+                {searchResults !== null && (
+                  <div className="space-y-2">
+                    {searchResults.length === 0 ? (
+                      <p className="text-xs text-gray-500 dark:text-gray-400">No products found matching &quot;{searchQuery}&quot;.</p>
+                    ) : (
+                      searchResults.map((m) => (
+                        <div key={m.sku_id} className="flex items-center justify-between border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+                          <div>
+                            <p className="text-sm font-medium text-gray-900 dark:text-white">{m.product_name} — {m.sku_name}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {m.brand_name || "—"} · {m.face_value ?? "—"} {m.price_currency} · sells at {m.selling_price} · source: {m.source}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => handleLink(m.sku_id)}
+                            disabled={acting}
+                            className="px-3 py-1.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                          >
+                            Link to this
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
               </section>
 
               {/* Create new / Ignore */}
