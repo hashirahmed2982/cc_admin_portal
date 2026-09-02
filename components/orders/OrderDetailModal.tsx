@@ -4,6 +4,7 @@
 import { Fragment, useState } from "react";
 import type { Order, OrderItem } from "@/types/order.types";
 import { OrderStatusBadge, fmtDate, isCompletable, isCancellable } from "@/utils/order.utils";
+import OrderTimeline from "@/components/orders/OrderTimeline";
 
 interface Props {
   order:      Order;
@@ -77,6 +78,7 @@ export default function OrderDetailModal({ order, onClose, onComplete, onCancel,
 
         {/* ── Items table ─────────────────────────────────────────────────── */}
         <div className="flex-1 overflow-y-auto p-6">
+          {order.items?.length ? <OrderTimeline order={order} /> : null}
           {!order.items?.length ? (
             <div className="flex items-center justify-center py-12">
               <svg className="animate-spin w-6 h-6 text-blue-500 mr-3" fill="none" viewBox="0 0 24 24">
@@ -229,7 +231,7 @@ function ItemsTable({ items }: { items: OrderItem[] }) {
       </thead>
       <tbody>
         {items.map((item, i) => {
-          const hasTrail = item.fulfillmentSupplier || item.fulfillmentAttempts.length > 0 || item.pendingReason;
+          const hasTrail = item.fulfillmentSupplier || item.fulfillmentAttempts.length > 0 || item.pendingReason || item.supplierRawResponse;
           const isExpanded = expandedId === item.orderDetailId;
           return (
             <Fragment key={`${item.orderDetailId}-${i}`}>
@@ -328,6 +330,16 @@ function FulfillmentTrail({ item }: { item: OrderItem }) {
             </tbody>
           </table>
         </div>
+      )}
+      {item.supplierRawResponse && (
+        <details className="mt-2">
+          <summary className="cursor-pointer font-medium text-gray-700 dark:text-gray-300">
+            Raw supplier response (for debugging a line that&apos;s stuck with no clear reason)
+          </summary>
+          <pre className="mt-1 p-2 bg-gray-100 dark:bg-gray-800 rounded text-[11px] overflow-x-auto text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-all">
+            {item.supplierRawResponse}
+          </pre>
+        </details>
       )}
     </div>
   );

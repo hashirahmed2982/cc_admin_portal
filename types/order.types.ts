@@ -26,6 +26,11 @@ export interface OrderItem {
   supplierServiceOrder: string | null;
   lastPolledAt:         string | null;
   fulfillmentAttempts:  FulfillmentAttempt[];
+  // Fallback for admin review when a supplier's response couldn't be
+  // confidently parsed (e.g. Gift2Games' delivered-code extractor not
+  // recognizing a field) — the raw response is preserved rather than the
+  // order silently going nowhere. Only ever populated for a gift2games line.
+  supplierRawResponse: string | null;
 }
 
 export interface Order {
@@ -75,6 +80,7 @@ export function mapOrderItem(i: any): OrderItem {
     supplierServiceOrder: i.supplierServiceOrder ?? i.wgcards_service_order ?? null,
     lastPolledAt:         i.lastPolledAt         ?? i.last_polled_at        ?? null,
     fulfillmentAttempts:  Array.isArray(i.fulfillmentAttempts) ? i.fulfillmentAttempts : [],
+    supplierRawResponse:  i.supplierRawResponse  ?? i.supplier_raw_response ?? null,
   };
 }
 
