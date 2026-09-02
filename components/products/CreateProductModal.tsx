@@ -69,6 +69,14 @@ export default function CreateProductModal({
     if (productType === "supplier") {
       if (!supplierRef.trim()) e.supplierRef = "Supplier product/SPU reference is required";
     }
+    // Margin floor — mirrors cc_backend's utils/priceGuard.js, which is
+    // the authoritative check either way. Both fields are hand-typed by
+    // the admin at creation time with no currency selector, so both are
+    // taken as USD.
+    const cost = productType === "internal" ? discountPrice : costPrice;
+    if (price && cost && parseFloat(price) < parseFloat(cost)) {
+      e.price = `Selling price cannot be lower than cost ($${parseFloat(cost).toFixed(2)})`;
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };

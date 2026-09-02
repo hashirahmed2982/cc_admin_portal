@@ -23,6 +23,11 @@ export interface Product {
   images: string[];
   price: number;
   costPrice?: number;
+  // The portal only sells in USD — everywhere price/costPrice are shown or
+  // charged treats them as bare USD numbers. costCurrency !== "USD" is the
+  // signal that costPrice above was recorded in another currency and is
+  // NOT directly comparable to price (see cc_backend's utils/priceGuard.js).
+  costCurrency?: string;
   discountPrice?: number;
   status: "active" | "inactive";
   totalCodes: number | null;

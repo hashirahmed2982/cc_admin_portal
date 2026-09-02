@@ -34,13 +34,38 @@ export default function EditProductModal({
   const [showPicker, setShowPicker] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [priceError, setPriceError] = useState<string | null>(null);
+
+  // Cost is admin-editable only for internal products. For a supplier
+  // product, cost_price is synced automatically (WgCards/Gift2Games catalog
+  // & stock sync) — cc_backend's update() now silently ignores any cost
+  // sent here for those, so showing it as editable would be misleading.
+  const costIsEditable = !product.isSupplierProduct;
+  const costCurrencyIsUsd = !product.costCurrency || product.costCurrency === "USD";
+  const effectiveCost = costIsEditable
+    ? (formData.discountPrice ? parseFloat(formData.discountPrice) : undefined)
+    : product.costPrice;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setPriceError(null);
+
+    const price = parseFloat(formData.price);
+    // Client-side floor check for immediate feedback — the backend
+    // (utils/priceGuard.js) is the authoritative guard either way, and
+    // re-validates this exact rule server-side regardless of what happens
+    // here. Skipped entirely when the recorded cost isn't USD — the
+    // backend refuses to compare those too (see priceGuard.js's header)
+    // rather than comparing incompatible currencies.
+    if (costCurrencyIsUsd && effectiveCost !== undefined && price < effectiveCost) {
+      setPriceError(`Selling price ($${price.toFixed(2)}) cannot be lower than cost price ($${effectiveCost.toFixed(2)})`);
+      return;
+    }
+
     onSubmit({
       ...formData,
-      price: parseFloat(formData.price),
-      discountPrice: formData.discountPrice
+      price,
+      discountPrice: costIsEditable && formData.discountPrice
         ? parseFloat(formData.discountPrice)
         : undefined,
       images, // include current image state in the update payload
@@ -278,18 +303,46 @@ export default function EditProductModal({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Discount Price ($)
+                {costIsEditable ? "Discount Price ($)" : "Cost ($)"}
               </label>
-              <input
-                type="number"
-                name="discountPrice"
-                value={formData.discountPrice}
-                onChange={handleChange}
-                step="0.01"
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              {costIsEditable ? (
+                <input
+                  type="number"
+                  name="discountPrice"
+                  value={formData.discountPrice}
+                  onChange={handleChange}
+                  step="0.01"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              ) : (
+                <div>
+                  <input
+                    type="text"
+                    value={product.costPrice != null ? `${product.costPrice.toFixed(2)} ${product.costCurrency || "USD"}` : "—"}
+                    disabled
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                  />
+                  <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                    Synced automatically from the supplier — not editable here.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
+
+          {!costCurrencyIsUsd && (
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-400 px-4 py-3 rounded-lg text-sm">
+              This SKU&apos;s cost is recorded in <strong>{product.costCurrency}</strong>, not USD — the portal only
+              sells in USD, so this price can&apos;t be verified against cost automatically. Confirm the real margin
+              manually before relying on it.
+            </div>
+          )}
+
+          {priceError && (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg text-sm">
+              {priceError}
+            </div>
+          )}
 
           <div className="flex justify-end gap-3 pt-4">
             <button

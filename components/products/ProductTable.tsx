@@ -354,6 +354,14 @@ export default function ProductTable({
                     ) : (
                       <div className="font-medium text-gray-900 dark:text-white">${product.price}</div>
                     )}
+                    {product.costCurrency && product.costCurrency !== "USD" && (
+                      <span
+                        className="mt-1 inline-block px-1.5 py-0.5 text-[10px] font-medium rounded bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400"
+                        title={`Cost recorded in ${product.costCurrency}, not USD — margin unverified`}
+                      >
+                        Cost in {product.costCurrency}
+                      </span>
+                    )}
                   </td>
 
                   {/* Inventory */}
