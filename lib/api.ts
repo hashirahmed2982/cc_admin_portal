@@ -603,6 +603,40 @@ class ApiService {
   async getCronStatus() {
     return this.request('/admin/cron-status');
   }
+
+  // ============================================
+  // CATALOG MATCHING ("Link Products" — Master Plan §9.2)
+  // ============================================
+
+  async getPendingCatalogMatches(f?: { supplier?: string; page?: number; limit?: number }) {
+    const p = new URLSearchParams();
+    if (f?.supplier) p.append('supplier', f.supplier);
+    if (f?.page) p.append('page', String(f.page));
+    if (f?.limit) p.append('limit', String(f.limit));
+    return this.request(`/admin/catalog-matching/pending${p.toString() ? '?' + p : ''}`);
+  }
+
+  async getCatalogMatchItem(stagingId: number) {
+    return this.request(`/admin/catalog-matching/${stagingId}`);
+  }
+
+  async linkCatalogMatch(stagingId: number, skuId: number) {
+    return this.request(`/admin/catalog-matching/${stagingId}/link`, {
+      method: 'POST',
+      body: JSON.stringify({ skuId }),
+    });
+  }
+
+  async createNewFromCatalogMatch(stagingId: number, data?: { sellingPrice?: number; category?: string }) {
+    return this.request(`/admin/catalog-matching/${stagingId}/create-new`, {
+      method: 'POST',
+      body: JSON.stringify(data || {}),
+    });
+  }
+
+  async ignoreCatalogMatch(stagingId: number) {
+    return this.request(`/admin/catalog-matching/${stagingId}/ignore`, { method: 'POST' });
+  }
 }
 
 export const api = new ApiService();
