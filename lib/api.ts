@@ -608,9 +608,10 @@ class ApiService {
   // CATALOG MATCHING ("Link Products" — Master Plan §9.2)
   // ============================================
 
-  async getPendingCatalogMatches(f?: { supplier?: string; page?: number; limit?: number }) {
+  async getPendingCatalogMatches(f?: { supplier?: string; search?: string; page?: number; limit?: number }) {
     const p = new URLSearchParams();
     if (f?.supplier) p.append('supplier', f.supplier);
+    if (f?.search) p.append('search', f.search);
     if (f?.page) p.append('page', String(f.page));
     if (f?.limit) p.append('limit', String(f.limit));
     return this.request(`/admin/catalog-matching/pending${p.toString() ? '?' + p : ''}`);

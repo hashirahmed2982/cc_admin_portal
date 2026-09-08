@@ -13,6 +13,7 @@ export default function LinkProductsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [supplierFilter, setSupplierFilter] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [reviewingId, setReviewingId] = useState<number | null>(null);
@@ -25,7 +26,7 @@ export default function LinkProductsPage() {
       setLoading(true);
       setError(null);
       const result = await api.getPendingCatalogMatches({
-        supplier: supplierFilter || undefined, page, limit: LIMIT,
+        supplier: supplierFilter || undefined, search: searchTerm || undefined, page, limit: LIMIT,
       });
       setItems(result.data || []);
       setTotal(result.pagination?.total || 0);
@@ -34,7 +35,7 @@ export default function LinkProductsPage() {
     } finally {
       setLoading(false);
     }
-  }, [supplierFilter, page]);
+  }, [supplierFilter, searchTerm, page]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -67,23 +68,35 @@ export default function LinkProductsPage() {
           </div>
         )}
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3">
-              <label className="text-sm text-gray-700 dark:text-gray-300">Supplier</label>
-              <select
-                value={supplierFilter}
-                onChange={(e) => { setSupplierFilter(e.target.value); setPage(1); }}
-                className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-              >
-                <option value="">All</option>
-                <option value="wgcards">wgcards</option>
-                <option value="gift2games">gift2games</option>
-              </select>
-            </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{total.toLocaleString()} pending review</p>
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm flex flex-col md:flex-row gap-4 justify-between">
+          <div className="flex items-center gap-4">
+            <select
+              value={supplierFilter}
+              onChange={(e) => { setSupplierFilter(e.target.value); setPage(1); }}
+              className="px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"
+            >
+              <option value="">All Suppliers</option>
+              <option value="wgcards">wgcards</option>
+              <option value="gift2games">gift2games</option>
+            </select>
+            <p className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{total.toLocaleString()} pending review</p>
           </div>
 
+          <div className="relative w-full md:w-80">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="search"
+              placeholder="Search item name or brand..."
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
+              className="pl-9 pr-4 py-2 w-full text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 dark:bg-gray-700">
