@@ -8,7 +8,13 @@ export interface StagingItem {
   item_name: string;
   brand_name: string | null;
   face_value: number | null;
+  // `currency`: the currency cost_price is actually denominated in (always
+  // USD for both suppliers, confirmed live). `face_value_currency`: the
+  // card's own real-world denomination (e.g. GBP for a UK Apple card) —
+  // a DIFFERENT thing, only ever the same value by coincidence. See
+  // cc_backend migration 016 for the bug this split fixes.
   currency: string | null;
+  face_value_currency: string | null;
   region: string | null;
   cost_price: number | null;
   match_key: string | null;

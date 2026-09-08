@@ -105,8 +105,8 @@ export default function LinkProductsPage() {
                     <td className="px-6 py-3 capitalize text-gray-700 dark:text-gray-300">{item.supplier}</td>
                     <td className="px-6 py-3 font-medium text-gray-900 dark:text-white max-w-xs truncate" title={item.item_name}>{item.item_name}</td>
                     <td className="px-6 py-3 text-gray-600 dark:text-gray-400">{item.brand_name || "—"}</td>
-                    <td className="px-6 py-3 text-gray-600 dark:text-gray-400">{item.face_value ?? "—"} {item.currency || ""}</td>
-                    <td className="px-6 py-3 text-gray-600 dark:text-gray-400">{item.cost_price ?? "—"}</td>
+                    <td className="px-6 py-3 text-gray-600 dark:text-gray-400">{item.face_value ?? "—"} {item.face_value_currency || item.currency || ""}</td>
+                    <td className="px-6 py-3 text-gray-600 dark:text-gray-400">{item.cost_price ?? "—"} {item.currency || ""}</td>
                     <td className="px-6 py-3 text-gray-500 dark:text-gray-500 whitespace-nowrap">{new Date(item.created_at).toLocaleDateString()}</td>
                     <td className="px-6 py-3">
                       <button

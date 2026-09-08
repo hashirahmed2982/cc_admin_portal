@@ -130,8 +130,8 @@ export default function CatalogMatchReviewModal({ stagingId, onClose, onResolved
                 <div className="grid grid-cols-2 gap-2 mt-2 text-sm text-gray-600 dark:text-gray-400">
                   <div>Brand guess: <span className="text-gray-900 dark:text-white">{item.brand_name || "—"}</span></div>
                   <div>Supplier SKU: <span className="font-mono text-gray-900 dark:text-white">{item.supplier_sku_ref}</span></div>
-                  <div>Face value: <span className="text-gray-900 dark:text-white">{item.face_value ?? "—"} {item.currency || ""}</span></div>
-                  <div>Cost price: <span className="text-gray-900 dark:text-white">{item.cost_price ?? "—"}</span></div>
+                  <div>Face value: <span className="text-gray-900 dark:text-white">{item.face_value ?? "—"} {item.face_value_currency || item.currency || ""}</span></div>
+                  <div>Cost price: <span className="text-gray-900 dark:text-white">{item.cost_price ?? "—"} {item.currency || ""}</span></div>
                 </div>
                 <p className="text-xs text-gray-400 mt-2 font-mono">match key: {item.computedMatchKey}</p>
               </section>
