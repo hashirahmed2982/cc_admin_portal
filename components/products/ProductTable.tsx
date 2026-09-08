@@ -237,10 +237,16 @@ export default function ProductTable({
                     Edit
                   </button>
                   {product.isSupplierProduct ? (
-                    <button disabled
-                      className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 rounded cursor-not-allowed"
-                      title="Supplier products use real-time fulfilment">
-                      Live Codes
+                    // Fulfilment is real-time via the supplier, so there's
+                    // nothing to upload here — but real digital_codes CAN
+                    // still exist for this SKU (a code recovered from a
+                    // cancelled order — see cancelOrder's
+                    // recoverAsSpareInventory), so this opens View Codes
+                    // rather than being a dead disabled button.
+                    <button onClick={() => onViewCodes(product)}
+                      className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      title="View any local codes for this product (e.g. recovered from a cancelled order) — most stock is fulfilled live by the supplier instead">
+                      View Codes
                     </button>
                   ) : (
                     <button onClick={() => onUploadCodes(product)}
@@ -443,18 +449,23 @@ export default function ProductTable({
                         </span>
                       )}
 
-                      {/* View codes — internal only */}
-                      {!product.isSupplierProduct ? (
-                        <button onClick={() => onViewCodes(product)}
-                          className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300" title="View Codes">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
-                        </button>
-                      ) : (
-                        <span className="w-5 h-5" />
-                      )}
+                      {/* View codes — NOT gated on isSupplierProduct. A
+                          supplier-sourced product can have real
+                          digital_codes rows too: order.service.js's
+                          cancelOrder recovery path (recoverAsSpareInventory)
+                          parks a code that arrived for an already-cancelled
+                          order as unassigned local stock, tied to the SKU
+                          regardless of products.source. Hiding this button
+                          for anything but 'internal' would make that stock
+                          invisible in the admin UI even though it's real
+                          and will be the next thing sold for this SKU. */}
+                      <button onClick={() => onViewCodes(product)}
+                        className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300" title="View Codes">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                      </button>
 
                       {/* Manage supplier links — NOT gated on isSupplierProduct.
                           confirmLink (Master Plan §9/§10) can attach a
