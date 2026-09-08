@@ -121,7 +121,13 @@ export default function SupplierLinksModal({ product, onClose }: SupplierLinksMo
                       <td className="py-3 pr-4 font-medium text-gray-900 dark:text-white capitalize">{link.supplier}</td>
                       <td className="py-3 pr-4 text-gray-500 dark:text-gray-400">{link.sku_name}</td>
                       <td className="py-3 pr-4 text-gray-900 dark:text-white">
-                        {(link.cost_price_base_currency ?? link.cost_price).toFixed(2)} {link.cost_currency}
+                        {/* cost_price/cost_price_base_currency are MySQL DECIMAL
+                            columns — getLinksForProduct does a raw SELECT l.* with
+                            no server-side parseFloat, so these arrive as strings,
+                            not numbers, despite the SkuSupplierLink type saying
+                            `number`. Number(...) wrap avoids ".toFixed is not a
+                            function". */}
+                        {Number(link.cost_price_base_currency ?? link.cost_price).toFixed(2)} {link.cost_currency}
                       </td>
                       <td className="py-3 pr-4">
                         <span className={`px-2 py-0.5 text-xs rounded ${
