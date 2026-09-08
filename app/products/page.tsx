@@ -36,6 +36,13 @@ export interface Product {
   unlimitedStock: boolean;
   source: "internal" | "wgcards" | "gift2games" | string;
   isSupplierProduct: boolean;
+  // Every distinct source this product actually has — its own `source`
+  // plus any supplier linked to one of its SKUs via Link Products
+  // (confirmLink never touches `source` itself, so a product can carry
+  // more sources than that one column shows). Always includes at least
+  // one entry; falls back to [source] on an older cached response that
+  // predates this field.
+  linkedSources?: string[];
   // spuType 5 = WgCards "Direct Top-Up" — cannot be sold through the
   // regular Buy button at all (no code, credits an account directly and
   // needs dynamic fields like player ID). null for internal products and

@@ -72,20 +72,38 @@ export default function ProductTable({
     return { label: "In Stock", color: "text-green-600 dark:text-green-400" };
   };
 
-  const SourceBadge = ({ product }: { product: Product }) =>
-    product.isSupplierProduct ? (
+  // One badge per distinct source the product actually has (its own
+  // `source` plus every supplier linked via Link Products' confirmLink —
+  // confirmLink never touches `source` itself, so a product can carry
+  // more sources than that one column would show). Falls back to just
+  // [product.source] if an older cached response predates linkedSources.
+  const SingleSourceBadge = ({ source }: { source: string }) =>
+    source === "internal" ? (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400">
+        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+        </svg>
+        Internal
+      </span>
+    ) : (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400 capitalize">
+        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+        {source}
+      </span>
+    );
+
+  const SourceBadge = ({ product }: { product: Product }) => {
+    const sources = product.linkedSources?.length ? product.linkedSources : [product.source || "internal"];
+    return (
       <span className="inline-flex items-center gap-1 flex-wrap">
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400">
-          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-          {product.source && product.source !== "internal" ? product.source : "Supplier"}
-        </span>
-        {product.source && downSuppliers.has(product.source) && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400" title="Supplier integration is currently down — orders for this product may fail until it recovers">
-            Temporarily Unavailable
+        {sources.map((s) => <SingleSourceBadge key={s} source={s} />)}
+        {sources.filter((s) => s !== "internal" && downSuppliers.has(s)).map((s) => (
+          <span key={`down-${s}`} className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400 capitalize" title={`${s} integration is currently down — orders for this product may fail until it recovers`}>
+            {s} Unavailable
           </span>
-        )}
+        ))}
         {product.spuType === DIRECT_TOPUP_SPU_TYPE && (
           <span
             className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400"
@@ -106,14 +124,8 @@ export default function ProductTable({
           </span>
         )}
       </span>
-    ) : (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400">
-        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-        </svg>
-        Internal
-      </span>
     );
+  };
 
   // ─── GRID VIEW ──────────────────────────────────────────────────────────────
   if (viewMode === "grid") {
