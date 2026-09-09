@@ -322,7 +322,14 @@ function FulfillmentTrail({ item }: { item: OrderItem }) {
                       {a.result}
                     </span>
                   </td>
-                  <td className="pr-4 py-1 text-gray-600 dark:text-gray-400">{a.reason || "—"}</td>
+                  <td className="pr-4 py-1 text-gray-600 dark:text-gray-400">
+                    {a.reason || "—"}
+                    {a.errorDetail && (
+                      <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5" title={a.errorDetail}>
+                        {a.errorDetail}
+                      </div>
+                    )}
+                  </td>
                   <td className="pr-4 py-1 text-gray-500 dark:text-gray-500">{new Date(a.attemptedAt).toLocaleString()}</td>
                   <td className="py-1 font-mono text-gray-500 dark:text-gray-500">{a.reference ? a.reference.slice(0, 12) + "…" : "—"}</td>
                 </tr>

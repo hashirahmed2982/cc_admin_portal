@@ -6,6 +6,13 @@ export interface FulfillmentAttempt {
   attemptedAt: string;
   result:      "success" | "failed";
   reason:      string | null;
+  // The supplier's own descriptive rejection message (e.g. WgCards'
+  // "This method not support skuId : X") — `reason` above is only ever a
+  // short code like 'supplier_rejected'; this is what actually explains
+  // why, when the supplier gave one. Passed through as-is by mapOrderItem
+  // below (fulfillmentAttempts isn't individually mapped) — undefined on
+  // any attempt recorded before this field existed.
+  errorDetail?: string | null;
 }
 
 export interface OrderItem {

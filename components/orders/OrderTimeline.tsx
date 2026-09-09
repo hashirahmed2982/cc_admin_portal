@@ -38,7 +38,7 @@ function buildTimeline(order: Order): TimelineEvent[] {
         title: `${item.productName} — tried ${a.supplier}`,
         detail: success
           ? `Accepted${a.reference ? ` — ref ${a.reference}` : ""}`
-          : `Rejected — ${a.reason || "no reason given"}`,
+          : `Rejected — ${a.reason || "no reason given"}${a.errorDetail ? `: ${a.errorDetail}` : ""}`,
       });
     }
   }
