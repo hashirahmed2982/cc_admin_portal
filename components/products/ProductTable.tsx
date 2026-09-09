@@ -184,16 +184,20 @@ export default function ProductTable({
 
                 <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">{product.description}</p>
 
-                {/* Price */}
+                {/* Price — always the real selling price. product.discountPrice
+                    is a DIFFERENT thing entirely (the admin-entered cost
+                    basis for an internal product, reused by
+                    EditProductModal's cost-edit field pre-fill — see that
+                    modal) that happens to share a name with a "markdown"
+                    concept this table never actually had. Showing it here
+                    as a fake "was $X now $Y" was actively wrong — it's
+                    cost, not a promotional price — and made every
+                    supplier product with a normal margin (cost < price is
+                    the whole point of a margin) display its own cost as
+                    the big, prominent number instead of what was actually
+                    set as the selling price. */}
                 <div className="flex items-center gap-2">
-                  {product.discountPrice ? (
-                    <>
-                      <span className="text-2xl font-bold text-gray-900 dark:text-white">${product.discountPrice}</span>
-                      <span className="text-sm text-gray-500 dark:text-gray-400 line-through">${product.price}</span>
-                    </>
-                  ) : (
-                    <span className="text-2xl font-bold text-gray-900 dark:text-white">${product.price}</span>
-                  )}
+                  <span className="text-2xl font-bold text-gray-900 dark:text-white">${product.price}</span>
                 </div>
 
                 {/* Stock */}
@@ -364,16 +368,14 @@ export default function ProductTable({
                     <div className="text-xs text-gray-500 dark:text-gray-400">{product.brand}</div>
                   </td>
 
-                  {/* Price */}
+                  {/* Price — always the real selling price. See the grid
+                      view's identical comment above: product.discountPrice
+                      is the admin-entered cost basis (a different concept
+                      reused by EditProductModal), not a promotional price —
+                      showing it here made every normally-margined product
+                      display its own cost instead of its actual price. */}
                   <td className="px-6 py-4">
-                    {product.discountPrice ? (
-                      <div>
-                        <div className="font-medium text-gray-900 dark:text-white">${product.discountPrice}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 line-through">${product.price}</div>
-                      </div>
-                    ) : (
-                      <div className="font-medium text-gray-900 dark:text-white">${product.price}</div>
-                    )}
+                    <div className="font-medium text-gray-900 dark:text-white">${product.price}</div>
                     {product.costCurrency && product.costCurrency !== "USD" && (
                       <span
                         className="mt-1 inline-block px-1.5 py-0.5 text-[10px] font-medium rounded bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400"
